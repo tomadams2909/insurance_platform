@@ -1,1 +1,14 @@
-# Docker Compose
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: insurance_user
+      POSTGRES_PASSWORD: insurance_pass
+      POSTGRES_DB: insurance_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
