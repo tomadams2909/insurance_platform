@@ -4,15 +4,12 @@ import models.tenant
 import models.user
 import models.quote
 import models.vehicle
-from routers import auth
+from routers import auth, quotes
 
 app = FastAPI(title="Insurance Platform")
 
 app.include_router(auth.router)
-
-# app.include_router(quotes.router)
-# app.include_router(policies.router)
-# app.include_router(reports.router)
+app.include_router(quotes.router)
 
 
 @app.get("/health")

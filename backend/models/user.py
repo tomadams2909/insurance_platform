@@ -20,6 +20,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=True)
     role = Column(Enum(UserRole), nullable=False)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
