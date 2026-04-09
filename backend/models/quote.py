@@ -33,6 +33,7 @@ class Quote(Base):
     customer_email = Column(String, nullable=True)
     customer_address = Column(JSON, nullable=True)
     term_months = Column(Integer, nullable=True)
+    vehicle_category = Column(Integer, nullable=True)
     product_fields = Column(JSON, nullable=True)
     calculated_premium = Column(Numeric(10, 2), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)

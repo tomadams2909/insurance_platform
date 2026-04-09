@@ -100,7 +100,7 @@ PRODUCT_SCHEMAS = {
         "affects_price": ["vehicle_value", "term_months"],
     },
     "TLP": {
-        "required_fields": [],
+        "required_fields": ["tlp_limit"],
         "optional_fields": [],
         "affects_price": ["vehicle_value", "term_months"],
     },

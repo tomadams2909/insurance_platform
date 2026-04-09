@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,7 +8,7 @@ from models.quote import Quote, QuoteStatus
 from models.vehicle import Vehicle
 from models.user import User, UserRole
 from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse
-from services.pricing import calculate_premium, PRODUCT_SCHEMAS
+from services.pricing import calculate_premium, PRODUCT_SCHEMAS, _get_vehicle_category
 from auth.dependencies import require_role
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
@@ -20,9 +22,11 @@ def create_quick_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_QUOTE_ROLES)),
 ):
+    vehicle_value = Decimal(str(payload.vehicle.purchase_price))
+    category = _get_vehicle_category(vehicle_value)
     premium = calculate_premium(
         product=payload.product.value,
-        vehicle_value=payload.vehicle.purchase_price,
+        vehicle_value=vehicle_value,
         term_months=payload.term_months,
     )
 
@@ -32,6 +36,7 @@ def create_quick_quote(
         status=QuoteStatus.QUICK_QUOTE,
         customer_name=payload.customer_name,
         term_months=payload.term_months,
+        vehicle_category=category,
         calculated_premium=premium,
         created_by=current_user.id,
     )
@@ -68,9 +73,11 @@ def create_full_quote(
     if missing:
         raise HTTPException(status_code=422, detail=f"Missing required product fields: {missing}")
 
+    vehicle_value = Decimal(str(payload.vehicle.purchase_price))
+    category = _get_vehicle_category(vehicle_value)
     premium = calculate_premium(
         product=payload.product.value,
-        vehicle_value=payload.vehicle.purchase_price,
+        vehicle_value=vehicle_value,
         term_months=payload.term_months,
     )
 
@@ -83,6 +90,7 @@ def create_full_quote(
         customer_email=payload.customer_email,
         customer_address=payload.customer_address,
         term_months=payload.term_months,
+        vehicle_category=category,
         product_fields=payload.product_fields,
         calculated_premium=premium,
         created_by=current_user.id,
