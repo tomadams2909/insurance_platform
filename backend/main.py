@@ -2,6 +2,8 @@ from fastapi import FastAPI
 
 import models.tenant
 import models.user
+import models.quote
+import models.vehicle
 from routers import auth
 
 app = FastAPI(title="Insurance Platform")
