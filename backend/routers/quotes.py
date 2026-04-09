@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.quote import Quote, QuoteStatus
+from models.quote import Quote, QuoteStatus, ProductType
 from models.vehicle import Vehicle
 from models.user import User, UserRole
 from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse
-from services.pricing import calculate_premium, PRODUCT_SCHEMAS, _get_vehicle_category
+from services.pricing import calculate_premium, PRODUCT_SCHEMAS, get_vehicle_category
 from auth.dependencies import require_role
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
@@ -24,7 +24,7 @@ def create_quick_quote(
     current_user: User = Depends(require_role(*_QUOTE_ROLES)),
 ):
     vehicle_value = Decimal(str(payload.vehicle.purchase_price))
-    category = _get_vehicle_category(vehicle_value)
+    category = get_vehicle_category(vehicle_value)
     premium = calculate_premium(
         product=payload.product.value,
         vehicle_value=vehicle_value,
@@ -75,7 +75,7 @@ def create_full_quote(
         raise HTTPException(status_code=422, detail=f"Missing required product fields: {missing}")
 
     vehicle_value = Decimal(str(payload.vehicle.purchase_price))
-    category = _get_vehicle_category(vehicle_value)
+    category = get_vehicle_category(vehicle_value)
     premium = calculate_premium(
         product=payload.product.value,
         vehicle_value=vehicle_value,
@@ -140,7 +140,7 @@ def promote_quote(
         raise HTTPException(status_code=422, detail=f"Missing required product fields: {missing}")
 
     vehicle_value = Decimal(str(payload.vehicle.purchase_price))
-    category = _get_vehicle_category(vehicle_value)
+    category = get_vehicle_category(vehicle_value)
     premium = calculate_premium(
         product=quote.product.value,
         vehicle_value=vehicle_value,
@@ -193,9 +193,15 @@ def list_quotes(
         query = query.filter(Quote.tenant_id == current_user.tenant_id)
 
     if product:
-        query = query.filter(Quote.product == product)
+        try:
+            query = query.filter(Quote.product == ProductType(product))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid product: {product}")
     if status:
-        query = query.filter(Quote.status == status)
+        try:
+            query = query.filter(Quote.status == QuoteStatus(status))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid status: {status}")
 
     total = query.count()
     items = query.order_by(Quote.id.desc()).offset((page - 1) * page_size).limit(page_size).all()

@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 
 # Vehicle category thresholds (by purchase value)
-def _get_vehicle_category(vehicle_value: Decimal) -> int:
+def get_vehicle_category(vehicle_value: Decimal) -> int:
     if vehicle_value < 15000:
         return 1
     elif vehicle_value < 40000:
@@ -43,7 +43,7 @@ def calculate_premium(
     **kwargs,
 ) -> Decimal:
     vehicle_value = Decimal(str(vehicle_value))
-    category = _get_vehicle_category(vehicle_value)
+    category = get_vehicle_category(vehicle_value)
     multiplier = CATEGORY_MULTIPLIERS[category]
     term = _term_factor(term_months)
 

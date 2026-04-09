@@ -3,16 +3,15 @@ from decimal import Decimal
 from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from models.quote import ProductType
-
-_CURRENT_YEAR = datetime.now().year
+from models.quote import ProductType, QuoteStatus
 
 
 def _validate_year(v: Optional[int]) -> Optional[int]:
     if v is None:
         return v
-    if v < _CURRENT_YEAR - 10 or v > _CURRENT_YEAR + 1:
-        raise ValueError(f"Vehicle year must be between {_CURRENT_YEAR - 10} and {_CURRENT_YEAR + 1}")
+    current_year = datetime.now().year
+    if v < current_year - 10 or v > current_year + 1:
+        raise ValueError(f"Vehicle year must be between {current_year - 10} and {current_year + 1}")
     return v
 
 
@@ -23,6 +22,20 @@ def _validate_date(v: Optional[str]) -> Optional[str]:
         datetime.strptime(v, "%Y-%m-%d")
     except ValueError:
         raise ValueError("Date must be in YYYY-MM-DD format")
+    return v
+
+
+def _validate_dob(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return v
+    try:
+        dob = datetime.strptime(v, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("customer_dob must be in YYYY-MM-DD format")
+    today = date.today()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if age < 18:
+        raise ValueError("Customer must be at least 18 years old")
     return v
 
 
@@ -85,17 +98,7 @@ class FullQuoteRequest(BaseModel):
     @field_validator("customer_dob")
     @classmethod
     def validate_dob(cls, v):
-        if v is None:
-            return v
-        try:
-            dob = datetime.strptime(v, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValueError("customer_dob must be in YYYY-MM-DD format")
-        today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        if age < 18:
-            raise ValueError("Customer must be at least 18 years old")
-        return v
+        return _validate_dob(v)
 
 
 class PromoteQuoteRequest(BaseModel):
@@ -110,17 +113,7 @@ class PromoteQuoteRequest(BaseModel):
     @field_validator("customer_dob")
     @classmethod
     def validate_dob(cls, v):
-        if v is None:
-            return v
-        try:
-            dob = datetime.strptime(v, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValueError("customer_dob must be in YYYY-MM-DD format")
-        today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        if age < 18:
-            raise ValueError("Customer must be at least 18 years old")
-        return v
+        return _validate_dob(v)
 
 
 class QuickQuoteResponse(BaseModel):
@@ -128,7 +121,7 @@ class QuickQuoteResponse(BaseModel):
 
     id: int
     product: ProductType
-    status: str
+    status: QuoteStatus
     term_months: int
     calculated_premium: Decimal
     customer_name: str
@@ -152,7 +145,7 @@ class FullQuoteResponse(BaseModel):
 
     id: int
     product: ProductType
-    status: str
+    status: QuoteStatus
     term_months: int
     calculated_premium: Decimal
     customer_name: str
@@ -167,7 +160,7 @@ class QuoteSummaryResponse(BaseModel):
 
     id: int
     product: ProductType
-    status: str
+    status: QuoteStatus
     term_months: int
     calculated_premium: Decimal
     customer_name: str

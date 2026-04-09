@@ -1,24 +1,24 @@
 from decimal import Decimal
 import pytest
-from services.pricing import calculate_premium, _get_vehicle_category
+from services.pricing import calculate_premium, get_vehicle_category
 
 
 # --- Vehicle category ---
 
 def test_category_low_value():
-    assert _get_vehicle_category(Decimal("10000")) == 1
+    assert get_vehicle_category(Decimal("10000")) == 1
 
 def test_category_boundary_15k():
-    assert _get_vehicle_category(Decimal("15000")) == 2
+    assert get_vehicle_category(Decimal("15000")) == 2
 
 def test_category_mid_value():
-    assert _get_vehicle_category(Decimal("25000")) == 2
+    assert get_vehicle_category(Decimal("25000")) == 2
 
 def test_category_boundary_40k():
-    assert _get_vehicle_category(Decimal("40000")) == 3
+    assert get_vehicle_category(Decimal("40000")) == 3
 
 def test_category_high_value():
-    assert _get_vehicle_category(Decimal("60000")) == 3
+    assert get_vehicle_category(Decimal("60000")) == 3
 
 
 # --- GAP ---
