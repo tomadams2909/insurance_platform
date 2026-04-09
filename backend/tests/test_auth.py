@@ -1,4 +1,6 @@
-from auth.security import decode_access_token
+from datetime import timedelta
+
+from auth.security import decode_access_token, create_access_token
 
 
 def login(client, email, password):
@@ -63,3 +65,18 @@ def test_require_role_blocks_wrong_role(client, test_user, test_admin):
     admin_token = login(client, "admin@example.com", "testpass123").json()["access_token"]
     response = client.get("/test-admin-only", headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 200
+
+
+def test_expired_token_returns_401(client, test_user):
+    expired_token = create_access_token({"sub": str(test_user.id)}, expires_delta=timedelta(seconds=-1))
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {expired_token}"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Token has expired"
+
+
+def test_tampered_token_returns_401(client, test_user):
+    token = login(client, "test@example.com", "testpass123").json()["access_token"]
+    tampered = token[:-5] + "XXXXX"
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {tampered}"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Could not validate token"
