@@ -98,6 +98,31 @@ class FullQuoteRequest(BaseModel):
         return v
 
 
+class PromoteQuoteRequest(BaseModel):
+    customer_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    customer_dob: Optional[str] = None
+    customer_email: Optional[EmailStr] = None
+    customer_address: Optional[dict[str, Any]] = None
+    term_months: Optional[Literal[12, 24, 36, 48, 60]] = None
+    vehicle: VehicleFullInput
+    product_fields: Optional[dict[str, Any]] = None
+
+    @field_validator("customer_dob")
+    @classmethod
+    def validate_dob(cls, v):
+        if v is None:
+            return v
+        try:
+            dob = datetime.strptime(v, "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("customer_dob must be in YYYY-MM-DD format")
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if age < 18:
+            raise ValueError("Customer must be at least 18 years old")
+        return v
+
+
 class QuickQuoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
