@@ -1,13 +1,14 @@
 from decimal import Decimal
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.quote import Quote, QuoteStatus
 from models.vehicle import Vehicle
 from models.user import User, UserRole
-from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest
+from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse
 from services.pricing import calculate_premium, PRODUCT_SCHEMAS, _get_vehicle_category
 from auth.dependencies import require_role
 
@@ -175,3 +176,28 @@ def promote_quote(
     db.refresh(quote)
 
     return quote
+
+
+@router.get("", response_model=QuoteListResponse)
+def list_quotes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_QUOTE_ROLES)),
+    product: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+):
+    query = db.query(Quote)
+
+    if current_user.role != UserRole.SUPER_ADMIN:
+        query = query.filter(Quote.tenant_id == current_user.tenant_id)
+
+    if product:
+        query = query.filter(Quote.product == product)
+    if status:
+        query = query.filter(Quote.status == status)
+
+    total = query.count()
+    items = query.order_by(Quote.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return QuoteListResponse(items=items, total=total, page=page, page_size=page_size)
