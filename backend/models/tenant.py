@@ -12,4 +12,5 @@ class Tenant(Base):
     logo_url = Column(String, nullable=True)
     primary_colour = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    finance_company = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
