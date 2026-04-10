@@ -155,6 +155,24 @@ class FullQuoteResponse(BaseModel):
     vehicle: VehicleResponse
 
 
+class QuoteDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    product: ProductType
+    status: QuoteStatus
+    term_months: int
+    calculated_premium: Decimal
+    customer_name: str
+    customer_dob: Optional[str]
+    customer_email: Optional[str]
+    customer_address: Optional[dict[str, Any]]
+    product_fields: Optional[dict[str, Any]]
+    vehicle_category: Optional[int]
+    created_at: datetime
+    vehicle: VehicleResponse
+
+
 class QuoteSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

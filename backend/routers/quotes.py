@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from typing import Optional
 
@@ -8,7 +9,7 @@ from database import get_db
 from models.quote import Quote, QuoteStatus, ProductType
 from models.vehicle import Vehicle
 from models.user import User, UserRole
-from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse
+from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse
 from services.pricing import calculate_premium, PRODUCT_SCHEMAS, get_vehicle_category
 from auth.dependencies import require_role
 
@@ -178,12 +179,28 @@ def promote_quote(
     return quote
 
 
+@router.get("/{quote_id}", response_model=QuoteDetailResponse)
+def get_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_QUOTE_ROLES)),
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    if current_user.role != UserRole.SUPER_ADMIN and quote.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return quote
+
+
 @router.get("", response_model=QuoteListResponse)
 def list_quotes(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_QUOTE_ROLES)),
     product: Optional[str] = Query(default=None),
     status: Optional[str] = Query(default=None),
+    date_from: Optional[date] = Query(default=None),
+    date_to: Optional[date] = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ):
@@ -202,6 +219,10 @@ def list_quotes(
             query = query.filter(Quote.status == QuoteStatus(status))
         except ValueError:
             raise HTTPException(status_code=422, detail=f"Invalid status: {status}")
+    if date_from:
+        query = query.filter(Quote.created_at >= date_from)
+    if date_to:
+        query = query.filter(Quote.created_at <= date_to)
 
     total = query.count()
     items = query.order_by(Quote.id.desc()).offset((page - 1) * page_size).limit(page_size).all()

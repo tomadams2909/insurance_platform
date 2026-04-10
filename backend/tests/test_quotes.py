@@ -265,3 +265,69 @@ def test_list_quotes_pagination(client, test_user):
     assert data["total"] >= 5
     assert data["page"] == 1
     assert data["page_size"] == 2
+
+
+def test_list_quotes_filter_by_product(client, test_user):
+    headers = auth_headers(client)
+    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
+    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "VRI", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
+
+    response = client.get("/quotes?product=GAP", headers=headers)
+    assert response.status_code == 200
+    assert all(item["product"] == "GAP" for item in response.json()["items"])
+
+
+def test_list_quotes_filter_by_status(client, test_user):
+    headers = auth_headers(client)
+    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
+
+    response = client.get("/quotes?status=QUICK_QUOTE", headers=headers)
+    assert response.status_code == 200
+    assert all(item["status"] == "QUICK_QUOTE" for item in response.json()["items"])
+
+
+def test_list_quotes_invalid_product_returns_422(client, test_user):
+    response = client.get("/quotes?product=INVALID", headers=auth_headers(client))
+    assert response.status_code == 422
+
+
+def test_list_quotes_invalid_status_returns_422(client, test_user):
+    response = client.get("/quotes?status=INVALID", headers=auth_headers(client))
+    assert response.status_code == 422
+
+
+# --- Get single quote ---
+
+def test_get_quote_returns_200(client, test_user, quick_quote):
+    response = client.get(f"/quotes/{quick_quote['id']}", headers=auth_headers(client))
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == quick_quote["id"]
+    assert data["customer_name"] == "Jane Smith"
+    assert "created_at" in data
+    assert "vehicle_category" in data
+
+
+def test_get_quote_wrong_tenant_returns_403(client, db, test_user, quick_quote):
+    other_tenant = Tenant(name="Other Co", slug="other-co-3")
+    db.add(other_tenant)
+    db.flush()
+    other_user = User(
+        email="other3@example.com",
+        hashed_password=get_password_hash("testpass123"),
+        role=UserRole.BROKER,
+        tenant_id=other_tenant.id,
+    )
+    db.add(other_user)
+    db.flush()
+
+    response = client.get(
+        f"/quotes/{quick_quote['id']}",
+        headers=auth_headers(client, "other3@example.com", "testpass123"),
+    )
+    assert response.status_code == 403
+
+
+def test_get_quote_not_found_returns_404(client, test_user):
+    response = client.get("/quotes/99999", headers=auth_headers(client))
+    assert response.status_code == 404
