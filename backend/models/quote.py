@@ -19,6 +19,8 @@ class QuoteStatus(enum.Enum):
     QUICK_QUOTE = "QUICK_QUOTE"
     QUOTED = "QUOTED"
     DECLINED = "DECLINED"
+    NOT_TAKEN_UP = "NOT_TAKEN_UP"
+    BOUND = "BOUND"
 
 
 class Quote(Base):
