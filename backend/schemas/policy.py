@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from models.document import DocumentType
 from models.policy import PolicyStatus
 from models.quote import ProductType
 
@@ -41,6 +42,15 @@ class PolicyListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class DocumentSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    document_type: DocumentType
+    filename: str
+    created_at: datetime
 
 
 LOCKED_FIELDS = {"vehicle.registration", "vehicle.make", "vehicle.model", "vehicle.year"}

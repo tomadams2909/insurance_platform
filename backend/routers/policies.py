@@ -14,8 +14,8 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest
-from services.document import generate_policy_schedule
+from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse
+from services.document import generate_policy_schedule, generate_endorsement_certificate
 
 router = APIRouter(tags=["policies"])
 
@@ -149,8 +149,8 @@ def issue_policy(
     return policy
 
 
-@router.get("/policies/{policy_id}/document")
-def download_policy_document(
+@router.get("/policies/{policy_id}/documents", response_model=list[DocumentSummaryResponse])
+def list_policy_documents(
     policy_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_POLICY_ROLES)),
@@ -161,11 +161,56 @@ def download_policy_document(
     if policy.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    return (
+        db.query(PolicyDocument)
+        .filter(PolicyDocument.policy_id == policy_id)
+        .order_by(PolicyDocument.created_at.asc())
+        .all()
+    )
+
+
+@router.get("/documents/{document_id}/download")
+def download_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    document = db.query(PolicyDocument).filter(PolicyDocument.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if document.policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return Response(
+        content=document.content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={document.filename}"},
+    )
+
+
+@router.get("/policies/{policy_id}/documents/latest")
+def download_latest_document(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+    document_type: Optional[str] = Query(default="POLICY_SCHEDULE", description="POLICY_SCHEDULE | ENDORSEMENT_CERTIFICATE | CANCELLATION_NOTICE"),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        doc_type = DocumentType(document_type)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid document_type: {document_type}")
+
     document = (
         db.query(PolicyDocument)
         .filter(
             PolicyDocument.policy_id == policy_id,
-            PolicyDocument.document_type == DocumentType.POLICY_SCHEDULE,
+            PolicyDocument.document_type == doc_type,
         )
         .order_by(PolicyDocument.created_at.desc())
         .first()
@@ -258,6 +303,16 @@ def endorse_policy(
         reason_text=payload.reason,
     )
     db.add(transaction)
+    db.flush()
+
+    pdf_bytes = generate_endorsement_certificate(policy, transaction, tenant_name=policy.tenant.name)
+    document = PolicyDocument(
+        policy_id=policy.id,
+        document_type=DocumentType.ENDORSEMENT_CERTIFICATE,
+        filename=f"{policy.policy_number}_endorsement_{transaction.id}.pdf",
+        content=pdf_bytes,
+    )
+    db.add(document)
     db.commit()
     db.refresh(policy)
 
