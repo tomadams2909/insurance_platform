@@ -22,7 +22,7 @@ def upgrade() -> None:
         'policy_documents',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('policy_id', sa.Integer(), nullable=False),
-        sa.Column('document_type', sa.Enum('POLICY_SCHEDULE', 'ENDORSEMENT_CERTIFICATE', 'CANCELLATION_NOTICE', name='documenttype'), nullable=False),
+        sa.Column('document_type', sa.Enum('POLICY_SCHEDULE', 'ENDORSEMENT_CERTIFICATE', 'CANCELLATION_NOTICE', 'REINSTATEMENT_NOTICE', name='documenttype'), nullable=False),
         sa.Column('filename', sa.String(), nullable=False),
         sa.Column('content', sa.LargeBinary(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),

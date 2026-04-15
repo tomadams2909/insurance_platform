@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.document import DocumentType
 from models.policy import PolicyStatus
@@ -51,6 +51,15 @@ class DocumentSummaryResponse(BaseModel):
     document_type: DocumentType
     filename: str
     created_at: datetime
+
+
+class CancelRequest(BaseModel):
+    reason: str = Field(min_length=1)
+    cancellation_date: Optional[date] = None
+
+
+class ReinstateRequest(BaseModel):
+    reinstatement_date: Optional[date] = None
 
 
 LOCKED_FIELDS = {"vehicle.registration", "vehicle.make", "vehicle.model", "vehicle.year"}

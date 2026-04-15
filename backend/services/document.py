@@ -129,6 +129,200 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
     return bytes(pdf.output())
 
 
+def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes:
+    data = transaction.data_after or {}
+    cancellation_date = data.get("cancellation_date", str(date.today()))
+    refund_amount = abs(float(transaction.premium_delta or 0))
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    pdf.set_fill_color(30, 64, 120)
+    pdf.rect(0, 0, 210, 28, style="F")
+
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(20, 8)
+    pdf.cell(0, 10, tenant_name, ln=False)
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_xy(20, 18)
+    pdf.cell(0, 6, "Cancellation Notice", ln=True)
+
+    # Logo placeholder
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(174, 4, 20, 20, style="F")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(30, 64, 120)
+    pdf.set_xy(174, 10)
+    pdf.cell(20, 8, _initials(tenant_name), align="C")
+
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(32)
+
+    # ── Policy reference bar ──────────────────────────────────────────────────
+    pdf.set_fill_color(240, 244, 250)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_x(20)
+    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
+    pdf.ln(4)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def section_heading(title: str):
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(30, 64, 120)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_x(20)
+        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    def row(label: str, value: str):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_x(20)
+        pdf.cell(55, 6, label, ln=False)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(115, 6, value, ln=True)
+
+    # ── Cancellation details ──────────────────────────────────────────────────
+    section_heading("Cancellation Details")
+    row("Effective Date:", cancellation_date)
+    row("Original Inception:", str(policy.inception_date))
+    row("Original Expiry:", str(policy.expiry_date))
+    row("Pro-rata Refund:", f"£{refund_amount:.2f}")
+    if transaction.reason_text:
+        row("Reason:", transaction.reason_text)
+    pdf.ln(4)
+
+    # ── Refund notice ─────────────────────────────────────────────────────────
+    section_heading("Refund Information")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_x(20)
+    pdf.multi_cell(
+        170, 6,
+        f"A pro-rata refund of £{refund_amount:.2f} will be processed to your original payment method. "
+        f"Please allow 5-10 working days for the refund to appear.",
+    )
+    pdf.ln(4)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    pdf.set_y(-30)
+    pdf.set_draw_color(30, 64, 120)
+    pdf.set_line_width(0.4)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(100, 100, 100)
+    pdf.set_x(20)
+    pdf.cell(
+        0, 4,
+        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
+        ln=True,
+    )
+
+    return bytes(pdf.output())
+
+
+def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> bytes:
+    data = transaction.data_after or {}
+    new_expiry = data.get("expiry_date", str(policy.expiry_date))
+    reinstatement_date = data.get("reinstatement_date", str(date.today()))
+    amount_due = float(transaction.premium_delta or 0)
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    pdf.set_fill_color(30, 64, 120)
+    pdf.rect(0, 0, 210, 28, style="F")
+
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(20, 8)
+    pdf.cell(0, 10, tenant_name, ln=False)
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_xy(20, 18)
+    pdf.cell(0, 6, "Reinstatement Notice", ln=True)
+
+    # Logo placeholder
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(174, 4, 20, 20, style="F")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(30, 64, 120)
+    pdf.set_xy(174, 10)
+    pdf.cell(20, 8, _initials(tenant_name), align="C")
+
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(32)
+
+    # ── Policy reference bar ──────────────────────────────────────────────────
+    pdf.set_fill_color(240, 244, 250)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_x(20)
+    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
+    pdf.ln(4)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def section_heading(title: str):
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(30, 64, 120)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_x(20)
+        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    def row(label: str, value: str):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_x(20)
+        pdf.cell(55, 6, label, ln=False)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(115, 6, value, ln=True)
+
+    # ── Reinstatement details ─────────────────────────────────────────────────
+    section_heading("Reinstatement Details")
+    row("Reinstatement Date:", reinstatement_date)
+    row("New Expiry Date:", new_expiry)
+    row("Original Inception:", str(policy.inception_date))
+    row("Amount Due:", f"£{amount_due:.2f}")
+    pdf.ln(4)
+
+    # ── Payment notice ────────────────────────────────────────────────────────
+    section_heading("Payment Information")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_x(20)
+    pdf.multi_cell(
+        170, 6,
+        f"A reinstatement premium of £{amount_due:.2f} is due to reactivate your cover effective {reinstatement_date}. "
+        f"Your policy will remain active until {new_expiry}. "
+        f"Please ensure payment is made promptly to avoid any lapse in cover.",
+    )
+    pdf.ln(4)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    pdf.set_y(-30)
+    pdf.set_draw_color(30, 64, 120)
+    pdf.set_line_width(0.4)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(100, 100, 100)
+    pdf.set_x(20)
+    pdf.cell(
+        0, 4,
+        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
+        ln=True,
+    )
+
+    return bytes(pdf.output())
+
+
 def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> bytes:
     data_before = transaction.data_before or {}
     data_after = transaction.data_after or {}

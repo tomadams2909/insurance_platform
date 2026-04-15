@@ -1,6 +1,6 @@
 import calendar
-from datetime import date
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,8 +14,8 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse
-from services.document import generate_policy_schedule, generate_endorsement_certificate
+from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest
+from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
 
 router = APIRouter(tags=["policies"])
 
@@ -310,6 +310,141 @@ def endorse_policy(
         policy_id=policy.id,
         document_type=DocumentType.ENDORSEMENT_CERTIFICATE,
         filename=f"{policy.policy_number}_endorsement_{transaction.id}.pdf",
+        content=pdf_bytes,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(policy)
+
+    return policy
+
+
+@router.post("/policies/{policy_id}/cancel", response_model=PolicyResponse, status_code=200)
+def cancel_policy(
+    policy_id: int,
+    payload: CancelRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if policy.status != PolicyStatus.ISSUED:
+        raise HTTPException(status_code=422, detail="Only ISSUED policies can be cancelled")
+
+    cancellation_date = payload.cancellation_date or date.today()
+    if cancellation_date < policy.inception_date or cancellation_date > policy.expiry_date:
+        raise HTTPException(status_code=422, detail="cancellation_date must be within the policy term")
+
+    last_reinstatement = (
+        db.query(PolicyTransaction)
+        .filter(
+            PolicyTransaction.policy_id == policy_id,
+            PolicyTransaction.transaction_type == TransactionType.REINSTATEMENT,
+        )
+        .order_by(PolicyTransaction.created_at.desc())
+        .first()
+    )
+    if last_reinstatement:
+        reinstatement_date = date.fromisoformat(last_reinstatement.data_after["reinstatement_date"])
+        if cancellation_date < reinstatement_date:
+            raise HTTPException(
+                status_code=422,
+                detail=f"cancellation_date cannot be before the last reinstatement date ({reinstatement_date})",
+            )
+
+    total_days = (policy.expiry_date - policy.inception_date).days
+    days_remaining = (policy.expiry_date - cancellation_date).days
+    refund = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    policy.status = PolicyStatus.CANCELLED
+
+    transaction = PolicyTransaction(
+        policy_id=policy.id,
+        transaction_type=TransactionType.CANCELLATION,
+        created_by=current_user.id,
+        data_before=policy.current_data,
+        data_after={**policy.current_data, "cancellation_date": str(cancellation_date)},
+        premium_delta=-refund,
+        reason_text=payload.reason,
+    )
+    db.add(transaction)
+    db.flush()
+
+    pdf_bytes = generate_cancellation_notice(policy, transaction, tenant_name=policy.tenant.name)
+    document = PolicyDocument(
+        policy_id=policy.id,
+        document_type=DocumentType.CANCELLATION_NOTICE,
+        filename=f"{policy.policy_number}_cancellation.pdf",
+        content=pdf_bytes,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(policy)
+
+    return policy
+
+
+@router.post("/policies/{policy_id}/reinstate", response_model=PolicyResponse, status_code=200)
+def reinstate_policy(
+    policy_id: int,
+    payload: ReinstateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if policy.status != PolicyStatus.CANCELLED:
+        raise HTTPException(status_code=422, detail="Only CANCELLED policies can be reinstated")
+
+    cancellation_tx = (
+        db.query(PolicyTransaction)
+        .filter(
+            PolicyTransaction.policy_id == policy_id,
+            PolicyTransaction.transaction_type == TransactionType.CANCELLATION,
+        )
+        .order_by(PolicyTransaction.created_at.desc())
+        .first()
+    )
+    cancellation_date = date.fromisoformat(cancellation_tx.data_after["cancellation_date"])
+    reinstatement_date = payload.reinstatement_date or date.today()
+
+    if reinstatement_date < cancellation_date:
+        raise HTTPException(
+            status_code=422,
+            detail=f"reinstatement_date cannot be before the cancellation date ({cancellation_date})",
+        )
+
+    days_remaining = (policy.expiry_date - cancellation_date).days
+    new_expiry = reinstatement_date + timedelta(days=days_remaining)
+
+    total_days = (policy.expiry_date - policy.inception_date).days
+    reinstatement_premium = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    policy.status = PolicyStatus.ISSUED
+    policy.expiry_date = new_expiry
+
+    transaction = PolicyTransaction(
+        policy_id=policy.id,
+        transaction_type=TransactionType.REINSTATEMENT,
+        created_by=current_user.id,
+        data_before={**policy.current_data, "expiry_date": str(cancellation_tx.data_after.get("cancellation_date"))},
+        data_after={**policy.current_data, "expiry_date": str(new_expiry), "reinstatement_date": str(reinstatement_date)},
+        premium_delta=reinstatement_premium,
+    )
+    db.add(transaction)
+    db.flush()
+
+    pdf_bytes = generate_reinstatement_notice(policy, transaction, tenant_name=policy.tenant.name)
+    document = PolicyDocument(
+        policy_id=policy.id,
+        document_type=DocumentType.REINSTATEMENT_NOTICE,
+        filename=f"{policy.policy_number}_reinstatement.pdf",
         content=pdf_bytes,
     )
     db.add(document)
