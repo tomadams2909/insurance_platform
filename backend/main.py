@@ -6,6 +6,7 @@ import models.quote
 import models.vehicle
 import models.policy
 import models.policy_transaction
+import models.document
 from routers import auth, quotes, policies
 
 app = FastAPI(title="Insurance Platform")

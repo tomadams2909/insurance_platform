@@ -3,15 +3,18 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
 from database import get_db
+from models.document import PolicyDocument, DocumentType
 from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
 from schemas.policy import PolicyResponse
+from services.document import generate_policy_schedule
 
 router = APIRouter(tags=["policies"])
 
@@ -119,8 +122,6 @@ def issue_policy(
     if policy.status != PolicyStatus.BOUND:
         raise HTTPException(status_code=422, detail="Only BOUND policies can be issued")
 
-    # TODO: trigger PDF generation and simulated e-sign flow
-
     policy.status = PolicyStatus.ISSUED
 
     transaction = PolicyTransaction(
@@ -132,7 +133,47 @@ def issue_policy(
         premium_delta=None,
     )
     db.add(transaction)
+
+    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name)
+    document = PolicyDocument(
+        policy_id=policy.id,
+        document_type=DocumentType.POLICY_SCHEDULE,
+        filename=f"{policy.policy_number}_schedule.pdf",
+        content=pdf_bytes,
+    )
+    db.add(document)
     db.commit()
     db.refresh(policy)
 
     return policy
+
+
+@router.get("/policies/{policy_id}/document")
+def download_policy_document(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    document = (
+        db.query(PolicyDocument)
+        .filter(
+            PolicyDocument.policy_id == policy_id,
+            PolicyDocument.document_type == DocumentType.POLICY_SCHEDULE,
+        )
+        .order_by(PolicyDocument.created_at.desc())
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="No document found for this policy")
+
+    return Response(
+        content=document.content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={document.filename}"},
+    )
