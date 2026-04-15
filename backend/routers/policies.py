@@ -103,3 +103,36 @@ def bind_quote(
     db.refresh(policy)
 
     return policy
+
+
+@router.post("/policies/{policy_id}/issue", response_model=PolicyResponse, status_code=200)
+def issue_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if policy.status != PolicyStatus.BOUND:
+        raise HTTPException(status_code=422, detail="Only BOUND policies can be issued")
+
+    # TODO: trigger PDF generation and simulated e-sign flow
+
+    policy.status = PolicyStatus.ISSUED
+
+    transaction = PolicyTransaction(
+        policy_id=policy.id,
+        transaction_type=TransactionType.ISSUE,
+        created_by=current_user.id,
+        data_before=None,
+        data_after=policy.current_data,
+        premium_delta=None,
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(policy)
+
+    return policy
