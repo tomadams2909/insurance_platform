@@ -14,7 +14,7 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest
+from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
 from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
 
 router = APIRouter(tags=["policies"])
@@ -147,6 +147,54 @@ def issue_policy(
     db.refresh(policy)
 
     return policy
+
+
+@router.get("/policies/{policy_id}/transactions", response_model=list[TransactionResponse])
+def list_policy_transactions(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    transactions = (
+        db.query(PolicyTransaction)
+        .filter(PolicyTransaction.policy_id == policy_id)
+        .order_by(PolicyTransaction.created_at.asc())
+        .all()
+    )
+
+    def describe(tx) -> str:
+        delta = tx.premium_delta
+        tx_type = tx.transaction_type.value
+        if tx_type == "BIND":
+            return f"Bind — £{delta:.2f}" if delta else "Bind"
+        if tx_type == "ISSUE":
+            return "Issue"
+        if tx_type == "ENDORSEMENT":
+            return "Endorsement — no premium change"
+        if tx_type == "CANCELLATION":
+            return f"Cancellation — refund £{abs(delta):.2f}" if delta else "Cancellation"
+        if tx_type == "REINSTATEMENT":
+            return f"Reinstatement — premium due £{delta:.2f}" if delta else "Reinstatement"
+        return tx_type.title()
+
+    result = []
+    for tx in transactions:
+        result.append(TransactionResponse(
+            id=tx.id,
+            transaction_type=tx.transaction_type.value,
+            created_at=tx.created_at,
+            created_by=tx.created_by,
+            premium_delta=tx.premium_delta,
+            reason_text=tx.reason_text,
+            description=describe(tx),
+        ))
+    return result
 
 
 @router.get("/policies/{policy_id}/documents", response_model=list[DocumentSummaryResponse])

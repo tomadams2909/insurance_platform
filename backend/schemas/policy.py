@@ -44,6 +44,18 @@ class PolicyListResponse(BaseModel):
     page_size: int
 
 
+class TransactionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    transaction_type: str
+    created_at: datetime
+    created_by: int
+    premium_delta: Optional[Decimal]
+    reason_text: Optional[str]
+    description: str
+
+
 class DocumentSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
