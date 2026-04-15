@@ -24,3 +24,5 @@ dist/
 
 # Project-specific
 notes/
+generate_sample_document.py
+sample_policy_schedule.pdf
