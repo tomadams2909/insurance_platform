@@ -21,3 +21,23 @@ class PolicyResponse(BaseModel):
     current_data: dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+
+class PolicySummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    policy_number: str
+    product: ProductType
+    status: PolicyStatus
+    inception_date: date
+    expiry_date: date
+    premium: Decimal
+    created_at: datetime
+
+
+class PolicyListResponse(BaseModel):
+    items: list[PolicySummaryResponse]
+    total: int
+    page: int
+    page_size: int

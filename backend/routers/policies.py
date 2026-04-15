@@ -1,8 +1,9 @@
 import calendar
 from datetime import date
 from decimal import Decimal
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,7 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse
+from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse
 from services.document import generate_policy_schedule
 
 router = APIRouter(tags=["policies"])
@@ -177,3 +178,56 @@ def download_policy_document(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={document.filename}"},
     )
+
+
+@router.get("/policies", response_model=PolicyListResponse)
+def list_policies(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+    product: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    date_from: Optional[date] = Query(default=None),
+    date_to: Optional[date] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+):
+    from models.quote import ProductType
+
+    query = db.query(Policy)
+
+    if current_user.role != UserRole.SUPER_ADMIN:
+        query = query.filter(Policy.tenant_id == current_user.tenant_id)
+
+    if product:
+        try:
+            query = query.filter(Policy.product == ProductType(product))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid product: {product}")
+    if status:
+        try:
+            query = query.filter(Policy.status == PolicyStatus(status))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid status: {status}")
+    if date_from:
+        query = query.filter(Policy.inception_date >= date_from)
+    if date_to:
+        query = query.filter(Policy.inception_date <= date_to)
+
+    total = query.count()
+    items = query.order_by(Policy.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return PolicyListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/policies/{policy_id}", response_model=PolicyResponse)
+def get_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if current_user.role != UserRole.SUPER_ADMIN and policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return policy
