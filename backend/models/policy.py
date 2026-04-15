@@ -33,3 +33,4 @@ class Policy(Base):
 
     quote = relationship("Quote")
     tenant = relationship("Tenant")
+    transactions = relationship("PolicyTransaction", back_populates="policy")

@@ -22,6 +22,7 @@ import models.user
 import models.quote
 import models.vehicle
 import models.policy
+import models.policy_transaction
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
