@@ -14,7 +14,7 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse
+from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest
 from services.document import generate_policy_schedule
 
 router = APIRouter(tags=["policies"])
@@ -217,6 +217,51 @@ def list_policies(
     items = query.order_by(Policy.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
     return PolicyListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.post("/policies/{policy_id}/endorse", response_model=PolicyResponse, status_code=200)
+def endorse_policy(
+    policy_id: int,
+    payload: EndorseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_POLICY_ROLES)),
+):
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    if policy.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if policy.status != PolicyStatus.ISSUED:
+        raise HTTPException(status_code=422, detail="Only ISSUED policies can be endorsed")
+
+    data_before = dict(policy.current_data)
+    updated_data = dict(policy.current_data)
+    customer = dict(updated_data.get("customer", {}))
+
+    if "customer_name" in payload.changed_fields:
+        customer["name"] = payload.changed_fields["customer_name"]
+    if "customer_email" in payload.changed_fields:
+        customer["email"] = payload.changed_fields["customer_email"]
+    if "customer_address" in payload.changed_fields:
+        customer["address"] = payload.changed_fields["customer_address"]
+
+    updated_data["customer"] = customer
+    policy.current_data = updated_data
+
+    transaction = PolicyTransaction(
+        policy_id=policy.id,
+        transaction_type=TransactionType.ENDORSEMENT,
+        created_by=current_user.id,
+        data_before=data_before,
+        data_after=updated_data,
+        premium_delta=Decimal("0.00"),
+        reason_text=payload.reason,
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(policy)
+
+    return policy
 
 
 @router.get("/policies/{policy_id}", response_model=PolicyResponse)
