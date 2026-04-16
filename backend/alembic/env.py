@@ -25,6 +25,7 @@ import models.policy
 import models.policy_transaction
 import models.document
 import models.dealer
+import models.dealer_commission
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

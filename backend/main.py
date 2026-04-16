@@ -11,6 +11,7 @@ import models.policy
 import models.policy_transaction
 import models.document
 import models.dealer
+import models.dealer_commission
 from routers import auth, quotes, policies
 
 app = FastAPI(title="Insurance Platform")
