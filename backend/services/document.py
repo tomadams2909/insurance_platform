@@ -158,6 +158,22 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
             row(key.replace("_", " ").title() + ":", str(value))
         pdf.ln(4)
 
+    # Fee Disclosure — FCA requires broker commission disclosure regardless of dealer presence
+    broker_commission = policy.broker_commission or 0
+    dealer_fee = policy.dealer_fee or 0
+    net_to_insurer = display_premium - broker_commission
+    total_payable = display_premium + dealer_fee
+
+    section_heading("Fee Disclosure")
+    dealer_info = data.get("dealer")
+    if dealer_info:
+        row("Dealer:", dealer_info.get("name", "-"))
+        row("Dealer Fee:", f"£{dealer_fee:.2f}  (non-refundable, payable in addition to premium)")
+    row("Broker Commission:", f"£{broker_commission:.2f}")
+    row("Net Premium to Insurer:", f"£{net_to_insurer:.2f}")
+    row("Total Payable:", f"£{total_payable:.2f}")
+    pdf.ln(4)
+
     footer()
     return bytes(pdf.output())
 
