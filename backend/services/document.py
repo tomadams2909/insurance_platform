@@ -1,11 +1,83 @@
 from datetime import date
 
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 
 def _initials(name: str) -> str:
     parts = name.strip().split()
     return "".join(p[0].upper() for p in parts[:2])
+
+
+def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    pdf.set_fill_color(30, 64, 120)
+    pdf.rect(0, 0, 210, 28, style="F")
+
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(20, 8)
+    pdf.cell(0, 10, tenant_name, new_x=XPos.RIGHT, new_y=YPos.TOP)
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_xy(20, 18)
+    pdf.cell(0, 6, subtitle, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # Logo placeholder
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(174, 4, 20, 20, style="F")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(30, 64, 120)
+    pdf.set_xy(174, 10)
+    pdf.cell(20, 8, _initials(tenant_name), align="C")
+
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(32)
+
+    # ── Policy reference bar ──────────────────────────────────────────────────
+    pdf.set_fill_color(240, 244, 250)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_x(20)
+    pdf.cell(170, 9, f"  Policy Number: {policy_number}", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(4)
+
+    def section_heading(title: str):
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(30, 64, 120)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_x(20)
+        pdf.cell(170, 7, f"  {title}", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    def row(label: str, value: str):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_x(20)
+        pdf.cell(55, 6, label, new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(115, 6, value, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    def footer():
+        pdf.set_y(-30)
+        pdf.set_draw_color(30, 64, 120)
+        pdf.set_line_width(0.4)
+        pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(100, 100, 100)
+        pdf.set_x(20)
+        pdf.cell(
+            0, 4,
+            f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
+            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+        )
+
+    return pdf, section_heading, row, footer
 
 
 def generate_policy_schedule(policy, tenant_name: str) -> bytes:
@@ -23,60 +95,8 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
         ] if p
     )
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name)
 
-    # ── Header ───────────────────────────────────────────────────────────────
-    pdf.set_fill_color(30, 64, 120)
-    pdf.rect(0, 0, 210, 28, style="F")
-
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(20, 8)
-    pdf.cell(0, 10, tenant_name, ln=False)
-
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_xy(20, 18)
-    pdf.cell(0, 6, "Policy Schedule", ln=True)
-
-    # Logo placeholder - white square with tenant initials top-right
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(174, 4, 20, 20, style="F")
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 64, 120)
-    pdf.set_xy(174, 10)
-    pdf.cell(20, 8, _initials(tenant_name), align="C")
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_y(32)
-
-    # ── Policy reference bar ──────────────────────────────────────────────────
-    pdf.set_fill_color(240, 244, 250)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_x(20)
-    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
-    pdf.ln(4)
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def section_heading(title: str):
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(30, 64, 120)
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_x(20)
-        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(1)
-
-    def row(label: str, value: str):
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_x(20)
-        pdf.cell(55, 6, label, ln=False)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(115, 6, value, ln=True)
-
-    # ── Cover details ─────────────────────────────────────────────────────────
     section_heading("Cover Details")
     row("Product:", data.get("product", ""))
     row("Term:", f"{data.get('term_months', '')} months")
@@ -85,7 +105,6 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
     row("Premium:", f"£{policy.premium}")
     pdf.ln(4)
 
-    # ── Insured details ───────────────────────────────────────────────────────
     section_heading("Insured Details")
     row("Name:", customer.get("name") or "-")
     row("Date of Birth:", customer.get("dob") or "-")
@@ -93,7 +112,6 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
     row("Address:", address_str or "-")
     pdf.ln(4)
 
-    # ── Vehicle details ───────────────────────────────────────────────────────
     section_heading("Vehicle Details")
     row("Registration:", vehicle.get("registration") or "-")
     row("Make:", vehicle.get("make") or "-")
@@ -104,28 +122,13 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
     row("Finance Type:", vehicle.get("finance_type") or "-")
     pdf.ln(4)
 
-    # ── Product-specific fields ───────────────────────────────────────────────
     if product_fields:
         section_heading("Product Details")
         for key, value in product_fields.items():
             row(key.replace("_", " ").title() + ":", str(value))
         pdf.ln(4)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    pdf.set_y(-30)
-    pdf.set_draw_color(30, 64, 120)
-    pdf.set_line_width(0.4)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(100, 100, 100)
-    pdf.set_x(20)
-    pdf.cell(
-        0, 4,
-        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
-        ln=True,
-    )
-
+    footer()
     return bytes(pdf.output())
 
 
@@ -134,60 +137,8 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes
     cancellation_date = data.get("cancellation_date", str(date.today()))
     refund_amount = abs(float(transaction.premium_delta or 0))
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf, section_heading, row, footer = _make_pdf("Cancellation Notice", policy.policy_number, tenant_name)
 
-    # ── Header ───────────────────────────────────────────────────────────────
-    pdf.set_fill_color(30, 64, 120)
-    pdf.rect(0, 0, 210, 28, style="F")
-
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(20, 8)
-    pdf.cell(0, 10, tenant_name, ln=False)
-
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_xy(20, 18)
-    pdf.cell(0, 6, "Cancellation Notice", ln=True)
-
-    # Logo placeholder
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(174, 4, 20, 20, style="F")
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 64, 120)
-    pdf.set_xy(174, 10)
-    pdf.cell(20, 8, _initials(tenant_name), align="C")
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_y(32)
-
-    # ── Policy reference bar ──────────────────────────────────────────────────
-    pdf.set_fill_color(240, 244, 250)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_x(20)
-    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
-    pdf.ln(4)
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def section_heading(title: str):
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(30, 64, 120)
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_x(20)
-        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(1)
-
-    def row(label: str, value: str):
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_x(20)
-        pdf.cell(55, 6, label, ln=False)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(115, 6, value, ln=True)
-
-    # ── Cancellation details ──────────────────────────────────────────────────
     section_heading("Cancellation Details")
     row("Effective Date:", cancellation_date)
     row("Original Inception:", str(policy.inception_date))
@@ -197,7 +148,6 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes
         row("Reason:", transaction.reason_text)
     pdf.ln(4)
 
-    # ── Refund notice ─────────────────────────────────────────────────────────
     section_heading("Refund Information")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_x(20)
@@ -208,21 +158,7 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes
     )
     pdf.ln(4)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    pdf.set_y(-30)
-    pdf.set_draw_color(30, 64, 120)
-    pdf.set_line_width(0.4)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(100, 100, 100)
-    pdf.set_x(20)
-    pdf.cell(
-        0, 4,
-        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
-        ln=True,
-    )
-
+    footer()
     return bytes(pdf.output())
 
 
@@ -232,60 +168,8 @@ def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> byte
     reinstatement_date = data.get("reinstatement_date", str(date.today()))
     amount_due = float(transaction.premium_delta or 0)
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf, section_heading, row, footer = _make_pdf("Reinstatement Notice", policy.policy_number, tenant_name)
 
-    # ── Header ───────────────────────────────────────────────────────────────
-    pdf.set_fill_color(30, 64, 120)
-    pdf.rect(0, 0, 210, 28, style="F")
-
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(20, 8)
-    pdf.cell(0, 10, tenant_name, ln=False)
-
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_xy(20, 18)
-    pdf.cell(0, 6, "Reinstatement Notice", ln=True)
-
-    # Logo placeholder
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(174, 4, 20, 20, style="F")
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 64, 120)
-    pdf.set_xy(174, 10)
-    pdf.cell(20, 8, _initials(tenant_name), align="C")
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_y(32)
-
-    # ── Policy reference bar ──────────────────────────────────────────────────
-    pdf.set_fill_color(240, 244, 250)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_x(20)
-    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
-    pdf.ln(4)
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def section_heading(title: str):
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(30, 64, 120)
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_x(20)
-        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(1)
-
-    def row(label: str, value: str):
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_x(20)
-        pdf.cell(55, 6, label, ln=False)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(115, 6, value, ln=True)
-
-    # ── Reinstatement details ─────────────────────────────────────────────────
     section_heading("Reinstatement Details")
     row("Reinstatement Date:", reinstatement_date)
     row("New Expiry Date:", new_expiry)
@@ -293,7 +177,6 @@ def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> byte
     row("Amount Due:", f"£{amount_due:.2f}")
     pdf.ln(4)
 
-    # ── Payment notice ────────────────────────────────────────────────────────
     section_heading("Payment Information")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_x(20)
@@ -305,21 +188,7 @@ def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> byte
     )
     pdf.ln(4)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    pdf.set_y(-30)
-    pdf.set_draw_color(30, 64, 120)
-    pdf.set_line_width(0.4)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(100, 100, 100)
-    pdf.set_x(20)
-    pdf.cell(
-        0, 4,
-        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
-        ln=True,
-    )
-
+    footer()
     return bytes(pdf.output())
 
 
@@ -342,60 +211,8 @@ def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> b
         if before_val != after_val:
             changes.append((label, str(before_val or "-"), str(after_val or "-")))
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf, section_heading, row, footer = _make_pdf("Endorsement Certificate", policy.policy_number, tenant_name)
 
-    # ── Header ───────────────────────────────────────────────────────────────
-    pdf.set_fill_color(30, 64, 120)
-    pdf.rect(0, 0, 210, 28, style="F")
-
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(20, 8)
-    pdf.cell(0, 10, tenant_name, ln=False)
-
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_xy(20, 18)
-    pdf.cell(0, 6, "Endorsement Certificate", ln=True)
-
-    # Logo placeholder
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(174, 4, 20, 20, style="F")
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 64, 120)
-    pdf.set_xy(174, 10)
-    pdf.cell(20, 8, _initials(tenant_name), align="C")
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_y(32)
-
-    # ── Policy reference bar ──────────────────────────────────────────────────
-    pdf.set_fill_color(240, 244, 250)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_x(20)
-    pdf.cell(170, 9, f"  Policy Number: {policy.policy_number}", fill=True, ln=True)
-    pdf.ln(4)
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def section_heading(title: str):
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(30, 64, 120)
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_x(20)
-        pdf.cell(170, 7, f"  {title}", fill=True, ln=True)
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(1)
-
-    def row(label: str, value: str):
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_x(20)
-        pdf.cell(55, 6, label, ln=False)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(115, 6, value, ln=True)
-
-    # ── Endorsement details ───────────────────────────────────────────────────
     section_heading("Endorsement Details")
     row("Effective Date:", str(date.today()))
     row("Premium Impact:", "No change")
@@ -403,14 +220,13 @@ def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> b
         row("Reason:", transaction.reason_text)
     pdf.ln(4)
 
-    # ── Changes ───────────────────────────────────────────────────────────────
     section_heading("Changes Made")
     if changes:
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_x(20)
-        pdf.cell(55, 6, "Field", ln=False)
-        pdf.cell(55, 6, "Previous Value", ln=False)
-        pdf.cell(60, 6, "New Value", ln=True)
+        pdf.cell(55, 6, "Field", new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(55, 6, "Previous Value", new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(60, 6, "New Value", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_draw_color(200, 200, 200)
         pdf.set_line_width(0.2)
         pdf.line(20, pdf.get_y(), 190, pdf.get_y())
@@ -418,29 +234,15 @@ def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> b
         for label, before, after in changes:
             pdf.set_font("Helvetica", "B", 9)
             pdf.set_x(20)
-            pdf.cell(55, 6, label, ln=False)
+            pdf.cell(55, 6, label, new_x=XPos.RIGHT, new_y=YPos.TOP)
             pdf.set_font("Helvetica", "", 9)
-            pdf.cell(55, 6, before[:30], ln=False)
-            pdf.cell(60, 6, after[:30], ln=True)
+            pdf.cell(55, 6, before[:30], new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(60, 6, after[:30], new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     else:
         pdf.set_font("Helvetica", "", 9)
         pdf.set_x(20)
-        pdf.cell(170, 6, "No recordable changes.", ln=True)
+        pdf.cell(170, 6, "No recordable changes.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(4)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    pdf.set_y(-30)
-    pdf.set_draw_color(30, 64, 120)
-    pdf.set_line_width(0.4)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(100, 100, 100)
-    pdf.set_x(20)
-    pdf.cell(
-        0, 4,
-        f"Generated: {date.today()}    |    {tenant_name} is authorised and regulated by the FCA.",
-        ln=True,
-    )
-
+    footer()
     return bytes(pdf.output())
