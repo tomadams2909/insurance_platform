@@ -31,7 +31,10 @@ class Policy(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    dealer_id = Column(Integer, ForeignKey("dealers.id"), nullable=True)
+
     quote = relationship("Quote")
     tenant = relationship("Tenant")
+    dealer = relationship("Dealer")
     transactions = relationship("PolicyTransaction", back_populates="policy")
     documents = relationship("PolicyDocument", back_populates="policy")

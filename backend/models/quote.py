@@ -41,6 +41,9 @@ class Quote(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+    dealer_id = Column(Integer, ForeignKey("dealers.id"), nullable=True)
+
     tenant = relationship("Tenant")
     created_by_user = relationship("User", foreign_keys=[created_by])
     vehicle = relationship("Vehicle", back_populates="quote", uselist=False)
+    dealer = relationship("Dealer")

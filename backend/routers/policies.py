@@ -78,6 +78,9 @@ def bind_quote(
         "term_months": quote.term_months,
     }
 
+    if quote.dealer:
+        current_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
+
     policy_number = _generate_policy_number(db, today.year)
     policy = Policy(
         quote_id=quote.id,
@@ -89,6 +92,7 @@ def bind_quote(
         expiry_date=expiry_date,
         premium=quote.calculated_premium,
         current_data=current_data,
+        dealer_id=quote.dealer_id,
     )
     db.add(policy)
     db.flush()

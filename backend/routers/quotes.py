@@ -46,6 +46,7 @@ def create_quick_quote(
         vehicle_category=category,
         calculated_premium=premium,
         created_by=current_user.id,
+        dealer_id=current_user.dealer_id,
     )
     db.add(quote)
     db.flush()
@@ -105,6 +106,7 @@ def create_full_quote(
         product_fields=payload.product_fields,
         calculated_premium=premium,
         created_by=current_user.id,
+        dealer_id=current_user.dealer_id,
     )
     db.add(quote)
     db.flush()
