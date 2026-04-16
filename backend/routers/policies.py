@@ -16,6 +16,7 @@ from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
 from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
 from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
+from services.policy_state_machine import validate_and_transition
 
 router = APIRouter(tags=["policies"])
 
@@ -120,10 +121,7 @@ def issue_policy(
         raise HTTPException(status_code=404, detail="Policy not found")
     if policy.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    if policy.status != PolicyStatus.BOUND:
-        raise HTTPException(status_code=422, detail="Only BOUND policies can be issued")
-
-    policy.status = PolicyStatus.ISSUED
+    policy.status = validate_and_transition(policy, "issue")
 
     transaction = PolicyTransaction(
         policy_id=policy.id,
@@ -324,8 +322,7 @@ def endorse_policy(
         raise HTTPException(status_code=404, detail="Policy not found")
     if policy.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    if policy.status != PolicyStatus.ISSUED:
-        raise HTTPException(status_code=422, detail="Only ISSUED policies can be endorsed")
+    validate_and_transition(policy, "endorse")
 
     data_before = dict(policy.current_data)
     updated_data = dict(policy.current_data)
@@ -379,8 +376,7 @@ def cancel_policy(
         raise HTTPException(status_code=404, detail="Policy not found")
     if policy.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    if policy.status != PolicyStatus.ISSUED:
-        raise HTTPException(status_code=422, detail="Only ISSUED policies can be cancelled")
+    new_status = validate_and_transition(policy, "cancel")
 
     cancellation_date = payload.cancellation_date or date.today()
     if cancellation_date < policy.inception_date or cancellation_date > policy.expiry_date:
@@ -407,7 +403,7 @@ def cancel_policy(
     days_remaining = (policy.expiry_date - cancellation_date).days
     refund = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    policy.status = PolicyStatus.CANCELLED
+    policy.status = new_status
 
     transaction = PolicyTransaction(
         policy_id=policy.id,
@@ -447,8 +443,7 @@ def reinstate_policy(
         raise HTTPException(status_code=404, detail="Policy not found")
     if policy.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    if policy.status != PolicyStatus.CANCELLED:
-        raise HTTPException(status_code=422, detail="Only CANCELLED policies can be reinstated")
+    new_status = validate_and_transition(policy, "reinstate")
 
     cancellation_tx = (
         db.query(PolicyTransaction)
@@ -474,7 +469,7 @@ def reinstate_policy(
     total_days = (policy.expiry_date - policy.inception_date).days
     reinstatement_premium = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    policy.status = PolicyStatus.ISSUED
+    policy.status = new_status
     policy.expiry_date = new_expiry
 
     transaction = PolicyTransaction(
