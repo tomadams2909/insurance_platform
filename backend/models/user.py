@@ -23,7 +23,9 @@ class User(Base):
     full_name = Column(String, nullable=True)
     role = Column(Enum(UserRole), nullable=False)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    dealer_id = Column(Integer, ForeignKey("dealers.id"), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     tenant = relationship("Tenant", backref="users")
+    dealer = relationship("Dealer", back_populates="users")
