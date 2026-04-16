@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 import models.tenant
 import models.user
@@ -10,6 +13,10 @@ import models.document
 from routers import auth, quotes, policies
 
 app = FastAPI(title="Insurance Platform")
+
+_static_dir = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(_static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 app.include_router(auth.router)
 app.include_router(quotes.router)

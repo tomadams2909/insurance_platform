@@ -133,7 +133,7 @@ def issue_policy(
     )
     db.add(transaction)
 
-    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name)
+    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
     document = PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.POLICY_SCHEDULE,
@@ -350,7 +350,7 @@ def endorse_policy(
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_endorsement_certificate(policy, transaction, tenant_name=policy.tenant.name)
+    pdf_bytes = generate_endorsement_certificate(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
     document = PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.ENDORSEMENT_CERTIFICATE,
@@ -417,7 +417,7 @@ def cancel_policy(
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_cancellation_notice(policy, transaction, tenant_name=policy.tenant.name)
+    pdf_bytes = generate_cancellation_notice(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
     document = PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.CANCELLATION_NOTICE,
@@ -483,7 +483,7 @@ def reinstate_policy(
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_reinstatement_notice(policy, transaction, tenant_name=policy.tenant.name)
+    pdf_bytes = generate_reinstatement_notice(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
     document = PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.REINSTATEMENT_NOTICE,

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.quote import Quote, QuoteStatus, ProductType
+from models.tenant import Tenant
 from models.vehicle import Vehicle
 from models.user import User, UserRole
 from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse
@@ -24,6 +25,10 @@ def create_quick_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_QUOTE_ROLES)),
 ):
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if tenant.allowed_products is not None and payload.product.value not in tenant.allowed_products:
+        raise HTTPException(status_code=403, detail=f"Product {payload.product.value} is not available for this tenant")
+
     vehicle_value = Decimal(str(payload.vehicle.purchase_price))
     category = get_vehicle_category(vehicle_value)
     premium = calculate_premium(
@@ -67,6 +72,10 @@ def create_full_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_QUOTE_ROLES)),
 ):
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if tenant.allowed_products is not None and payload.product.value not in tenant.allowed_products:
+        raise HTTPException(status_code=403, detail=f"Product {payload.product.value} is not available for this tenant")
+
     schema = PRODUCT_SCHEMAS[payload.product.value]
     missing = [
         f for f in schema["required_fields"]

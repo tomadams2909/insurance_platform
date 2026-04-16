@@ -1,7 +1,24 @@
+import os
 from datetime import date
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
+
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DEFAULT_COLOUR = "#1E4078"
+
+
+def _hex_to_rgb(hex_colour: str) -> tuple[int, int, int]:
+    hex_colour = hex_colour.lstrip("#")
+    return int(hex_colour[0:2], 16), int(hex_colour[2:4], 16), int(hex_colour[4:6], 16)
+
+
+def _resolve_logo_path(logo_url: str | None) -> str | None:
+    if not logo_url:
+        return None
+    relative = logo_url.lstrip("/")
+    full_path = os.path.join(_BACKEND_DIR, relative)
+    return full_path if os.path.exists(full_path) else None
 
 
 def _initials(name: str) -> str:
@@ -9,14 +26,16 @@ def _initials(name: str) -> str:
     return "".join(p[0].upper() for p in parts[:2])
 
 
-def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
+def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
+              primary_colour: str = _DEFAULT_COLOUR, logo_url: str = None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_margins(20, 20, 20)
     pdf.set_auto_page_break(auto=True, margin=20)
 
     # ── Header ───────────────────────────────────────────────────────────────
-    pdf.set_fill_color(30, 64, 120)
+    r, g, b = _hex_to_rgb(primary_colour or _DEFAULT_COLOUR)
+    pdf.set_fill_color(r, g, b)
     pdf.rect(0, 0, 210, 28, style="F")
 
     pdf.set_font("Helvetica", "B", 18)
@@ -28,13 +47,20 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
     pdf.set_xy(20, 18)
     pdf.cell(0, 6, subtitle, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    # Logo placeholder
-    pdf.set_fill_color(255, 255, 255)
-    pdf.rect(174, 4, 20, 20, style="F")
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 64, 120)
-    pdf.set_xy(174, 10)
-    pdf.cell(20, 8, _initials(tenant_name), align="C")
+    # Logo — use tenant logo file if available, fall back to initials box
+    logo_path = _resolve_logo_path(logo_url)
+    if logo_path:
+        try:
+            pdf.image(logo_path, x=172, y=3, w=24, h=22)
+        except Exception:
+            logo_path = None
+    if not logo_path:
+        pdf.set_fill_color(255, 255, 255)
+        pdf.rect(174, 4, 20, 20, style="F")
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(r, g, b)
+        pdf.set_xy(174, 10)
+        pdf.cell(20, 8, _initials(tenant_name), align="C")
 
     pdf.set_text_color(0, 0, 0)
     pdf.set_y(32)
@@ -48,7 +74,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
 
     def section_heading(title: str):
         pdf.set_font("Helvetica", "B", 10)
-        pdf.set_fill_color(30, 64, 120)
+        pdf.set_fill_color(r, g, b)
         pdf.set_text_color(255, 255, 255)
         pdf.set_x(20)
         pdf.cell(170, 7, f"  {title}", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -64,7 +90,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
 
     def footer():
         pdf.set_y(-30)
-        pdf.set_draw_color(30, 64, 120)
+        pdf.set_draw_color(r, g, b)
         pdf.set_line_width(0.4)
         pdf.line(20, pdf.get_y(), 190, pdf.get_y())
         pdf.ln(2)
@@ -80,7 +106,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str):
     return pdf, section_heading, row, footer
 
 
-def generate_policy_schedule(policy, tenant_name: str) -> bytes:
+def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
     data = policy.current_data
     customer = data.get("customer", {})
     vehicle = data.get("vehicle", {})
@@ -95,7 +121,7 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
         ] if p
     )
 
-    pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name)
+    pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Cover Details")
     row("Product:", data.get("product", ""))
@@ -132,12 +158,12 @@ def generate_policy_schedule(policy, tenant_name: str) -> bytes:
     return bytes(pdf.output())
 
 
-def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes:
+def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
     data = transaction.data_after or {}
     cancellation_date = data.get("cancellation_date", str(date.today()))
     refund_amount = abs(float(transaction.premium_delta or 0))
 
-    pdf, section_heading, row, footer = _make_pdf("Cancellation Notice", policy.policy_number, tenant_name)
+    pdf, section_heading, row, footer = _make_pdf("Cancellation Notice", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Cancellation Details")
     row("Effective Date:", cancellation_date)
@@ -162,13 +188,13 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str) -> bytes
     return bytes(pdf.output())
 
 
-def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> bytes:
+def generate_reinstatement_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
     data = transaction.data_after or {}
     new_expiry = data.get("expiry_date", str(policy.expiry_date))
     reinstatement_date = data.get("reinstatement_date", str(date.today()))
     amount_due = float(transaction.premium_delta or 0)
 
-    pdf, section_heading, row, footer = _make_pdf("Reinstatement Notice", policy.policy_number, tenant_name)
+    pdf, section_heading, row, footer = _make_pdf("Reinstatement Notice", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Reinstatement Details")
     row("Reinstatement Date:", reinstatement_date)
@@ -192,7 +218,7 @@ def generate_reinstatement_notice(policy, transaction, tenant_name: str) -> byte
     return bytes(pdf.output())
 
 
-def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> bytes:
+def generate_endorsement_certificate(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
     data_before = transaction.data_before or {}
     data_after = transaction.data_after or {}
 
@@ -211,7 +237,7 @@ def generate_endorsement_certificate(policy, transaction, tenant_name: str) -> b
         if before_val != after_val:
             changes.append((label, str(before_val or "-"), str(after_val or "-")))
 
-    pdf, section_heading, row, footer = _make_pdf("Endorsement Certificate", policy.policy_number, tenant_name)
+    pdf, section_heading, row, footer = _make_pdf("Endorsement Certificate", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Endorsement Details")
     row("Effective Date:", str(date.today()))
