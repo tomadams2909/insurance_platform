@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, JSON, String, DateTime
+from sqlalchemy import Boolean, Column, Integer, JSON, Numeric, String, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -16,6 +16,7 @@ class Tenant(Base):
     finance_company = Column(String, nullable=True)
     allowed_products = Column(JSON, nullable=True)
     favicon_url = Column(String, nullable=True)
+    broker_commission_rate = Column(Numeric(5, 2), nullable=False, default=15, server_default="15.00")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     dealers = relationship("Dealer", back_populates="tenant")
