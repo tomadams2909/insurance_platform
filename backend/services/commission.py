@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models.dealer import Dealer
@@ -85,3 +86,22 @@ def calculate_commission(
         net_premium_to_insurer=premium - broker_commission,
         total_payable=premium + dealer_fee,
     )
+
+
+def get_effective_premium(policy, db: Session) -> Decimal:
+    """
+    Current in-force premium = sum of BIND + ENDORSEMENT premium_delta values.
+    CANCELLATION and REINSTATEMENT deltas are transactional events, not changes
+    to the in-force premium, so they are excluded.
+    """
+    from models.policy_transaction import PolicyTransaction, TransactionType
+
+    result = db.query(func.sum(PolicyTransaction.premium_delta)).filter(
+        PolicyTransaction.policy_id == policy.id,
+        PolicyTransaction.transaction_type.in_([
+            TransactionType.BIND,
+            TransactionType.ENDORSEMENT,
+        ]),
+    ).scalar()
+
+    return Decimal(str(result or 0)).quantize(Decimal("0.01"))

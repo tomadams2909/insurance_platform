@@ -106,7 +106,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
     return pdf, section_heading, row, footer
 
 
-def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
+def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = None, logo_url: str = None, effective_premium=None) -> bytes:
     data = policy.current_data
     customer = data.get("customer", {})
     vehicle = data.get("vehicle", {})
@@ -121,6 +121,10 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
         ] if p
     )
 
+    # Use effective premium (sum of BIND + ENDORSEMENT deltas) if provided,
+    # falling back to the original bind premium
+    display_premium = effective_premium if effective_premium is not None else policy.premium
+
     pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Cover Details")
@@ -128,7 +132,7 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
     row("Term:", f"{data.get('term_months', '')} months")
     row("Inception Date:", str(policy.inception_date))
     row("Expiry Date:", str(policy.expiry_date))
-    row("Premium:", f"£{policy.premium}")
+    row("Premium:", f"£{display_premium}")
     pdf.ln(4)
 
     section_heading("Insured Details")

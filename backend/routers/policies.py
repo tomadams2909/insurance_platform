@@ -15,7 +15,7 @@ from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
 from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
-from services.commission import calculate_commission
+from services.commission import calculate_commission, get_effective_premium
 from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
 from services.policy_state_machine import validate_and_transition
 
@@ -155,7 +155,8 @@ def issue_policy(
     )
     db.add(transaction)
 
-    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
+    effective_premium = get_effective_premium(policy, db)
+    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url, effective_premium=effective_premium)
     document = PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.POLICY_SCHEDULE,
@@ -196,7 +197,7 @@ def list_policy_transactions(
         if tx_type == "ISSUE":
             return "Issue"
         if tx_type == "ENDORSEMENT":
-            return "Endorsement — no premium change"
+            return f"Endorsement — premium change £{delta:+.2f}" if delta and delta != 0 else "Endorsement — no premium change"
         if tx_type == "CANCELLATION":
             return f"Cancellation — refund £{abs(delta):.2f}" if delta else "Cancellation"
         if tx_type == "REINSTATEMENT":
@@ -360,14 +361,29 @@ def endorse_policy(
     updated_data["customer"] = customer
     policy.current_data = updated_data
 
+    # Calculate commission deltas if premium is changing
+    commission_data = None
+    if payload.premium_delta != 0:
+        old_premium = get_effective_premium(policy, db)
+        new_premium = old_premium + payload.premium_delta
+        old_commission = calculate_commission(old_premium, policy.product, policy.dealer, policy.tenant, db)
+        new_commission = calculate_commission(new_premium, policy.product, policy.dealer, policy.tenant, db)
+        commission_data = {
+            "premium_delta": str(payload.premium_delta),
+            "dealer_fee_delta": str(new_commission.dealer_fee - old_commission.dealer_fee),
+            "broker_commission_delta": str(new_commission.broker_commission - old_commission.broker_commission),
+            "net_premium_delta": str(new_commission.net_premium_to_insurer - old_commission.net_premium_to_insurer),
+        }
+
     transaction = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.ENDORSEMENT,
         created_by=current_user.id,
         data_before=data_before,
         data_after=updated_data,
-        premium_delta=Decimal("0.00"),
+        premium_delta=payload.premium_delta,
         reason_text=payload.reason,
+        commission_data=commission_data,
     )
     db.add(transaction)
     db.flush()
@@ -423,7 +439,8 @@ def cancel_policy(
 
     total_days = (policy.expiry_date - policy.inception_date).days
     days_remaining = (policy.expiry_date - cancellation_date).days
-    refund = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    effective_premium = get_effective_premium(policy, db)
+    refund = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     policy.status = new_status
 
@@ -489,7 +506,8 @@ def reinstate_policy(
     new_expiry = reinstatement_date + timedelta(days=days_remaining)
 
     total_days = (policy.expiry_date - policy.inception_date).days
-    reinstatement_premium = (policy.premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    effective_premium = get_effective_premium(policy, db)
+    reinstatement_premium = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     policy.status = new_status
     policy.expiry_date = new_expiry
