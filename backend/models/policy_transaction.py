@@ -28,6 +28,7 @@ class PolicyTransaction(Base):
     premium_delta = Column(Numeric(10, 2), nullable=True)
     reason_code = Column(String, nullable=True)
     reason_text = Column(Text, nullable=True)
+    commission_data = Column(JSON, nullable=True)
 
     policy = relationship("Policy", back_populates="transactions")
     created_by_user = relationship("User", foreign_keys=[created_by])

@@ -15,6 +15,7 @@ from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
 from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
+from services.commission import calculate_commission
 from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
 from services.policy_state_machine import validate_and_transition
 
@@ -81,6 +82,14 @@ def bind_quote(
     if quote.dealer:
         current_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
 
+    commission = calculate_commission(
+        premium=Decimal(str(quote.calculated_premium)),
+        product=quote.product,
+        dealer=quote.dealer,
+        tenant=quote.tenant,
+        db=db,
+    )
+
     policy_number = _generate_policy_number(db, today.year)
     policy = Policy(
         quote_id=quote.id,
@@ -91,6 +100,8 @@ def bind_quote(
         inception_date=inception_date,
         expiry_date=expiry_date,
         premium=quote.calculated_premium,
+        dealer_fee=commission.dealer_fee,
+        broker_commission=commission.broker_commission,
         current_data=current_data,
         dealer_id=quote.dealer_id,
     )
@@ -106,6 +117,13 @@ def bind_quote(
         data_before=None,
         data_after=current_data,
         premium_delta=Decimal(str(quote.calculated_premium)),
+        commission_data={
+            "gross_premium": str(commission.gross_premium),
+            "dealer_fee": str(commission.dealer_fee),
+            "broker_commission": str(commission.broker_commission),
+            "net_premium_to_insurer": str(commission.net_premium_to_insurer),
+            "total_payable": str(commission.total_payable),
+        },
     )
     db.add(transaction)
     db.commit()

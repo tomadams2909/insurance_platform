@@ -27,6 +27,8 @@ class Policy(Base):
     inception_date = Column(Date, nullable=False)
     expiry_date = Column(Date, nullable=False)
     premium = Column(Numeric(10, 2), nullable=False)
+    dealer_fee = Column(Numeric(10, 2), nullable=True)
+    broker_commission = Column(Numeric(10, 2), nullable=True)
     current_data = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
