@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
 
 function ProtectedLayout({ children }) {
   return (
@@ -19,7 +20,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<ProtectedLayout><div className="page"><h2>Dashboard</h2></div></ProtectedLayout>} />
+          <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
           <Route path="*" element={<ProtectedLayout><div className="page"><h2>Page not found</h2></div></ProtectedLayout>} />
         </Routes>
       </BrowserRouter>
