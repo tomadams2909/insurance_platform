@@ -1,7 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+
+function ProtectedLayout({ children }) {
+  return (
+    <ProtectedRoute>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  )
+}
 
 export default function App() {
   return (
@@ -10,11 +19,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={
-            <ProtectedRoute>
-              <div style={{ padding: '2rem' }}>Loading app...</div>
-            </ProtectedRoute>
-          } />
+          <Route path="/dashboard" element={<ProtectedLayout><div className="page"><h2>Dashboard</h2></div></ProtectedLayout>} />
+          <Route path="*" element={<ProtectedLayout><div className="page"><h2>Page not found</h2></div></ProtectedLayout>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

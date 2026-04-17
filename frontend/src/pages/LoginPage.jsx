@@ -20,7 +20,10 @@ export default function LoginPage() {
       params.append('username', email)
       params.append('password', password)
       const { data } = await client.post('/auth/login', params)
-      login({ email }, data.access_token, data.tenant)
+      // Temporarily set token so the /auth/me call is authenticated
+      localStorage.setItem('token', data.access_token)
+      const { data: me } = await client.get('/auth/me')
+      login(me, data.access_token, data.tenant)
       navigate('/dashboard')
     } catch {
       setError('Invalid email or password')

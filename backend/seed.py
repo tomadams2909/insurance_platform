@@ -374,7 +374,7 @@ def seed():
             name="Autosure UK",
             primary_colour="#1E4078",
             logo_url="/static/logos/autosure.svg",
-            favicon_url="/static/favicons/autosure.ico",
+            favicon_url="/static/favicons/autosure.svg",
             allowed_products=None,
         )
 
@@ -443,7 +443,7 @@ def seed():
             name="DriveShield",
             primary_colour="#0D7C5F",
             logo_url="/static/logos/driveshield.svg",
-            favicon_url="/static/favicons/driveshield.ico",
+            favicon_url="/static/favicons/driveshield.svg",
             allowed_products=["GAP", "TYRE_ESSENTIAL", "TYRE_PLUS", "COSMETIC"],
         )
 
@@ -492,7 +492,7 @@ def seed():
             name="PremiumCover",
             primary_colour="#6B1E1E",
             logo_url="/static/logos/premiumcover.svg",
-            favicon_url="/static/favicons/premiumcover.ico",
+            favicon_url="/static/favicons/premiumcover.svg",
             allowed_products=["GAP", "VRI", "TLP"],
         )
 
