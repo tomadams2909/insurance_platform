@@ -16,7 +16,7 @@ from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
 from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
 from services.commission import calculate_commission, get_effective_premium
-from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice
+from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice, generate_finance_agreement
 from services.policy_state_machine import validate_and_transition
 
 router = APIRouter(tags=["policies"])
@@ -81,6 +81,12 @@ def bind_quote(
 
     if quote.dealer:
         current_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
+
+    current_data["payment_type"] = quote.payment_type.value
+    if quote.finance_breakdown:
+        current_data["finance_breakdown"] = quote.finance_breakdown
+        current_data["finance_deposit"] = str(quote.finance_deposit)
+        current_data["finance_term_months"] = quote.finance_term_months
 
     commission = calculate_commission(
         premium=Decimal(str(quote.calculated_premium)),
@@ -157,13 +163,40 @@ def issue_policy(
 
     effective_premium = get_effective_premium(policy, db)
     pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url, effective_premium=effective_premium)
-    document = PolicyDocument(
+    db.add(PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.POLICY_SCHEDULE,
         filename=f"{policy.policy_number}_schedule.pdf",
         content=pdf_bytes,
-    )
-    db.add(document)
+    ))
+
+    if policy.current_data.get("payment_type") == "FINANCE":
+        fb = policy.current_data.get("finance_breakdown", {})
+        customer = policy.current_data.get("customer", {})
+        vehicle = policy.current_data.get("vehicle", {})
+        addr = customer.get("address") or {}
+        address_str = ", ".join(p for p in [addr.get("line1", ""), addr.get("city", ""), addr.get("postcode", "")] if p)
+        fa_bytes = generate_finance_agreement(
+            policy_number=policy.policy_number,
+            customer_name=customer.get("name", ""),
+            customer_address=address_str or "-",
+            vehicle_registration=vehicle.get("registration") or "-",
+            finance_company_name=policy.tenant.finance_company or "AutoFinance Ltd",
+            financed_amount=float(fb.get("financed_amount", 0)),
+            deposit=float(policy.current_data.get("finance_deposit", 0)),
+            monthly_payment=float(fb.get("monthly_payment", 0)),
+            finance_charge=float(fb.get("finance_charge", 0)),
+            total_repayable=float(fb.get("total_repayable", 0)),
+            apr=float(fb.get("apr", 0)),
+            term_months=int(policy.current_data.get("finance_term_months", 12)),
+        )
+        db.add(PolicyDocument(
+            policy_id=policy.id,
+            document_type=DocumentType.FINANCE_AGREEMENT,
+            filename=f"{policy.policy_number}_finance_agreement.pdf",
+            content=fa_bytes,
+        ))
+
     db.commit()
     db.refresh(policy)
 
