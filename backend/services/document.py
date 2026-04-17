@@ -239,6 +239,141 @@ def generate_reinstatement_notice(policy, transaction, tenant_name: str, primary
     return bytes(pdf.output())
 
 
+def generate_finance_agreement(
+    policy_number: str,
+    customer_name: str,
+    customer_address: str,
+    vehicle_registration: str,
+    finance_company_name: str,
+    financed_amount: float,
+    deposit: float,
+    monthly_payment: float,
+    finance_charge: float,
+    total_repayable: float,
+    apr: float,
+    term_months: int,
+) -> bytes:
+    pdf = FPDF()
+    pdf.compress = False
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # Header
+    pdf.set_fill_color(40, 40, 40)
+    pdf.rect(0, 0, 210, 28, style="F")
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_xy(20, 8)
+    pdf.cell(0, 10, finance_company_name, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_xy(20, 18)
+    pdf.cell(0, 6, "Consumer Credit Agreement", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(32)
+
+    # Agreement reference bar
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_x(20)
+    pdf.cell(170, 9, f"  Agreement Reference: {policy_number}", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(4)
+
+    def section_heading(title: str):
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(40, 40, 40)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_x(20)
+        pdf.cell(170, 7, f"  {title}", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    def row(label: str, value: str):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_x(20)
+        pdf.cell(75, 6, label, new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(95, 6, value, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # Customer and vehicle details
+    section_heading("Borrower Details")
+    row("Full Name:", customer_name)
+    row("Address:", customer_address)
+    row("Vehicle Registration:", vehicle_registration)
+    pdf.ln(4)
+
+    # Key financial figures
+    section_heading("Credit Details")
+    row("Amount of Credit (Financed Amount):", f"£{financed_amount:.2f}")
+    row("Deposit Paid:", f"£{deposit:.2f}")
+    row("Total Charge for Credit:", f"£{finance_charge:.2f}")
+    row("Total Amount Repayable:", f"£{total_repayable:.2f}")
+    row("Representative APR:", f"{apr}%")
+    row("Duration:", f"{term_months} months")
+    pdf.ln(4)
+
+    # Payment schedule table
+    section_heading("Payment Schedule")
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_x(20)
+    pdf.set_fill_color(220, 220, 220)
+    pdf.cell(20, 7, "No.", fill=True, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(80, 7, "Description", fill=True, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(35, 7, "Due Date", fill=True, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(35, 7, "Amount", fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_font("Helvetica", "", 9)
+    fill = False
+    pdf.set_fill_color(248, 248, 248)
+    pdf.set_x(20)
+    pdf.cell(20, 6, "-", fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(80, 6, "Deposit (due on agreement)", fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(35, 6, "On signing", fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(35, 6, f"£{deposit:.2f}", fill=fill, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    for i in range(1, term_months + 1):
+        fill = not fill
+        pdf.set_x(20)
+        pdf.cell(20, 6, str(i), fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(80, 6, f"Monthly instalment {i}", fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(35, 6, f"Month {i}", fill=fill, new_x=XPos.RIGHT, new_y=YPos.TOP)
+        pdf.cell(35, 6, f"£{monthly_payment:.2f}", fill=fill, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.ln(4)
+
+    # Cancellation rights
+    section_heading("Your Right to Withdraw")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_x(20)
+    pdf.multi_cell(
+        170, 5,
+        "You have the right to withdraw from this agreement without giving any reason within 14 days "
+        "of the date of this agreement (the 'cooling-off period'). To exercise this right, you must notify "
+        f"{finance_company_name} in writing before the end of the cooling-off period. If you withdraw, "
+        "you must repay the credit advanced plus any interest accrued without delay and no later than "
+        "30 calendar days after giving notice of withdrawal. This agreement is regulated by the "
+        "Consumer Credit Act 1974.",
+    )
+    pdf.ln(4)
+
+    # Footer
+    pdf.set_y(-30)
+    pdf.set_draw_color(40, 40, 40)
+    pdf.set_line_width(0.4)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(100, 100, 100)
+    pdf.set_x(20)
+    pdf.cell(
+        0, 4,
+        f"Generated: {date.today()}    |    {finance_company_name} is authorised and regulated by the Financial Conduct Authority.",
+        new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+    )
+
+    return bytes(pdf.output())
+
+
 def generate_endorsement_certificate(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
     data_before = transaction.data_before or {}
     data_after = transaction.data_after or {}
