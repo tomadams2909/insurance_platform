@@ -23,6 +23,11 @@ class QuoteStatus(enum.Enum):
     BOUND = "BOUND"
 
 
+class PaymentType(enum.Enum):
+    CASH = "CASH"
+    FINANCE = "FINANCE"
+
+
 class Quote(Base):
     __tablename__ = "quotes"
 
@@ -40,6 +45,11 @@ class Quote(Base):
     calculated_premium = Column(Numeric(10, 2), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    payment_type = Column(Enum(PaymentType), nullable=False, server_default="CASH")
+    finance_deposit = Column(Numeric(10, 2), nullable=True)
+    finance_term_months = Column(Integer, nullable=True)
+    finance_breakdown = Column(JSON, nullable=True)
 
     dealer_id = Column(Integer, ForeignKey("dealers.id"), nullable=True)
 
