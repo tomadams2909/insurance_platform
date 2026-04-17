@@ -473,3 +473,29 @@ def test_list_documents_wrong_tenant_returns_403(client, db, test_user, issued_p
 def test_download_document_not_found_returns_404(client, test_user):
     response = client.get("/documents/999999/download", headers=auth_headers(client))
     assert response.status_code == 404
+
+
+# ── Commission tests ──────────────────────────────────────────────────────────
+
+def test_bind_stores_commission_on_policy(client, test_user, quoted_quote):
+    policy = client.post(
+        f"/quotes/{quoted_quote['id']}/bind",
+        headers=auth_headers(client),
+    ).json()
+
+    # broker_commission should be 15% of the premium (test_tenant default)
+    premium = Decimal(str(policy["premium"]))
+    expected_broker = (premium * Decimal("15") / Decimal("100")).quantize(Decimal("0.01"))
+    assert Decimal(str(policy["broker_commission"])) == expected_broker
+    # No dealer on test_user so dealer_fee should be zero
+    assert Decimal(str(policy["dealer_fee"])) == Decimal("0.00")
+
+
+def test_policy_schedule_pdf_contains_fee_disclosure(client, test_user, issued_policy):
+    response = client.get(
+        f"/policies/{issued_policy['id']}/documents/latest",
+        params={"document_type": "POLICY_SCHEDULE"},
+        headers=auth_headers(client),
+    )
+    assert response.status_code == 200
+    assert b"Fee Disclosure" in response.content

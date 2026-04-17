@@ -29,6 +29,7 @@ def _initials(name: str) -> str:
 def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
               primary_colour: str = _DEFAULT_COLOUR, logo_url: str = None):
     pdf = FPDF()
+    pdf.compress = False
     pdf.add_page()
     pdf.set_margins(20, 20, 20)
     pdf.set_auto_page_break(auto=True, margin=20)

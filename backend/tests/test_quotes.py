@@ -331,3 +331,55 @@ def test_get_quote_wrong_tenant_returns_403(client, db, test_user, quick_quote):
 def test_get_quote_not_found_returns_404(client, test_user):
     response = client.get("/quotes/99999", headers=auth_headers(client))
     assert response.status_code == 404
+
+
+# --- Product restrictions ---
+
+@pytest.fixture
+def restricted_tenant_user(db, test_tenant):
+    """User whose tenant only allows GAP and TYRE_ESSENTIAL."""
+    test_tenant.allowed_products = ["GAP", "TYRE_ESSENTIAL"]
+    db.flush()
+    user = User(
+        email="restricted@example.com",
+        hashed_password=get_password_hash("testpass123"),
+        role=UserRole.BROKER,
+        tenant_id=test_tenant.id,
+    )
+    db.add(user)
+    db.flush()
+    return user
+
+
+def test_quick_quote_blocked_product_returns_403(client, restricted_tenant_user):
+    response = client.post(
+        "/quotes/quick",
+        json={"customer_name": "Jane", "product": "VRI", "term_months": 12, "vehicle": VEHICLE_QUICK},
+        headers=auth_headers(client, "restricted@example.com"),
+    )
+    assert response.status_code == 403
+    assert "VRI" in response.json()["detail"]
+
+
+def test_quick_quote_allowed_product_succeeds(client, restricted_tenant_user):
+    response = client.post(
+        "/quotes/quick",
+        json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK},
+        headers=auth_headers(client, "restricted@example.com"),
+    )
+    assert response.status_code == 201
+
+
+def test_full_quote_blocked_product_returns_403(client, restricted_tenant_user):
+    response = client.post(
+        "/quotes",
+        json={
+            "customer_name": "Jane",
+            "product": "VRI",
+            "term_months": 12,
+            "vehicle": VEHICLE_FULL,
+        },
+        headers=auth_headers(client, "restricted@example.com"),
+    )
+    assert response.status_code == 403
+    assert "VRI" in response.json()["detail"]

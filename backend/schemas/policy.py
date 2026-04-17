@@ -19,6 +19,8 @@ class PolicyResponse(BaseModel):
     inception_date: date
     expiry_date: date
     premium: Decimal
+    dealer_fee: Optional[Decimal]
+    broker_commission: Optional[Decimal]
     current_data: dict[str, Any]
     created_at: datetime
     updated_at: datetime
