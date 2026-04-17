@@ -133,7 +133,22 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
     row("Term:", f"{data.get('term_months', '')} months")
     row("Inception Date:", str(policy.inception_date))
     row("Expiry Date:", str(policy.expiry_date))
-    row("Premium:", f"£{display_premium}")
+    pdf.ln(4)
+
+    payment_type = data.get("payment_type", "CASH")
+    fb = data.get("finance_breakdown") or {}
+
+    if payment_type == "FINANCE" and fb:
+        section_heading("Payment Details")
+        row("Net Premium (Financed Amount):", f"£{fb.get('financed_amount', '-')}")
+        row("Deposit:", f"£{float(data.get('finance_deposit', 0)):.2f}")
+        row("Monthly Payment:", f"£{fb.get('monthly_payment', '-')} x {data.get('finance_term_months', '-')} months")
+        row("Finance Charge (cost of credit):", f"£{fb.get('finance_charge', '-')}")
+        row("Total Repayable:", f"£{fb.get('total_repayable', '-')}")
+        row("Representative APR:", f"{fb.get('apr', '-')}%")
+    else:
+        section_heading("Payment Details")
+        row("Premium:", f"£{display_premium}")
     pdf.ln(4)
 
     section_heading("Insured Details")
@@ -198,11 +213,21 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_
     section_heading("Refund Information")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_x(20)
-    pdf.multi_cell(
-        170, 6,
-        f"A pro-rata refund of £{refund_amount:.2f} will be processed to your original payment method. "
-        f"Please allow 5-10 working days for the refund to appear.",
-    )
+    policy_data = policy.current_data or {}
+    if policy_data.get("payment_type") == "FINANCE":
+        pdf.multi_cell(
+            170, 6,
+            f"A pro-rata refund of £{refund_amount:.2f} will be processed to your finance account, "
+            f"reducing the outstanding balance. Please allow 5-10 working days for this to be applied. "
+            f"Please note: the finance charge (cost of credit) is non-refundable. "
+            f"The refund applies to the net premium (financed amount) only.",
+        )
+    else:
+        pdf.multi_cell(
+            170, 6,
+            f"A pro-rata refund of £{refund_amount:.2f} will be processed to your original payment method. "
+            f"Please allow 5-10 working days for the refund to appear.",
+        )
     pdf.ln(4)
 
     footer()
