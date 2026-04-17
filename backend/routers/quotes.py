@@ -6,17 +6,41 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.quote import Quote, QuoteStatus, ProductType
+from models.quote import Quote, QuoteStatus, ProductType, PaymentType
 from models.tenant import Tenant
 from models.vehicle import Vehicle
 from models.user import User, UserRole
 from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse
 from services.pricing import calculate_premium, PRODUCT_SCHEMAS, get_vehicle_category
+from services.finance import calculate_finance
 from auth.dependencies import require_role
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
 _QUOTE_ROLES = (UserRole.BROKER, UserRole.UNDERWRITER, UserRole.TENANT_ADMIN, UserRole.SUPER_ADMIN)
+
+
+def _resolve_finance(payload, premium: Decimal):
+    """Validate finance fields against the calculated premium and return the breakdown dict, or None for CASH."""
+    if payload.payment_type != PaymentType.FINANCE:
+        return None
+    if payload.finance_deposit >= premium:
+        raise HTTPException(
+            status_code=422,
+            detail="finance_deposit must be less than the calculated premium",
+        )
+    breakdown = calculate_finance(
+        principal=premium,
+        deposit=Decimal(str(payload.finance_deposit)),
+        term_months=payload.finance_term_months,
+    )
+    return {
+        "financed_amount": str(breakdown.financed_amount),
+        "monthly_payment": str(breakdown.monthly_payment),
+        "finance_charge": str(breakdown.finance_charge),
+        "total_repayable": str(breakdown.total_repayable),
+        "apr": str(breakdown.apr),
+    }
 
 
 @router.post("/quick", response_model=QuickQuoteResponse, status_code=201)
@@ -37,6 +61,8 @@ def create_quick_quote(
         term_months=payload.term_months,
     )
 
+    finance_breakdown = _resolve_finance(payload, premium)
+
     quote = Quote(
         tenant_id=current_user.tenant_id,
         product=payload.product,
@@ -47,6 +73,10 @@ def create_quick_quote(
         calculated_premium=premium,
         created_by=current_user.id,
         dealer_id=current_user.dealer_id,
+        payment_type=payload.payment_type,
+        finance_deposit=payload.finance_deposit,
+        finance_term_months=payload.finance_term_months,
+        finance_breakdown=finance_breakdown,
     )
     db.add(quote)
     db.flush()
@@ -93,6 +123,8 @@ def create_full_quote(
         term_months=payload.term_months,
     )
 
+    finance_breakdown = _resolve_finance(payload, premium)
+
     quote = Quote(
         tenant_id=current_user.tenant_id,
         product=payload.product,
@@ -107,6 +139,10 @@ def create_full_quote(
         calculated_premium=premium,
         created_by=current_user.id,
         dealer_id=current_user.dealer_id,
+        payment_type=payload.payment_type,
+        finance_deposit=payload.finance_deposit,
+        finance_term_months=payload.finance_term_months,
+        finance_breakdown=finance_breakdown,
     )
     db.add(quote)
     db.flush()

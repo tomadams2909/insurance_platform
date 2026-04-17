@@ -185,7 +185,7 @@ def list_policy_transactions(
     transactions = (
         db.query(PolicyTransaction)
         .filter(PolicyTransaction.policy_id == policy_id)
-        .order_by(PolicyTransaction.created_at.asc())
+        .order_by(PolicyTransaction.created_at.asc(), PolicyTransaction.id.asc())
         .all()
     )
 

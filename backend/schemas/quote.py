@@ -1,9 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
-from models.quote import ProductType, QuoteStatus
+from models.quote import ProductType, QuoteStatus, PaymentType
+
+_FINANCE_TERMS = {12, 24, 36}
 
 
 def _validate_year(v: Optional[int]) -> Optional[int]:
@@ -83,6 +85,20 @@ class QuickQuoteRequest(BaseModel):
     product: ProductType
     term_months: Literal[12, 24, 36, 48, 60]
     vehicle: VehicleQuickInput
+    payment_type: PaymentType = PaymentType.CASH
+    finance_deposit: Optional[Decimal] = Field(default=None, ge=0)
+    finance_term_months: Optional[int] = None
+
+    @model_validator(mode="after")
+    def validate_finance_fields(self):
+        if self.payment_type == PaymentType.FINANCE:
+            if self.finance_deposit is None:
+                raise ValueError("finance_deposit is required when payment_type is FINANCE")
+            if self.finance_term_months is None:
+                raise ValueError("finance_term_months is required when payment_type is FINANCE")
+            if self.finance_term_months not in _FINANCE_TERMS:
+                raise ValueError("finance_term_months must be 12, 24, or 36")
+        return self
 
 
 class FullQuoteRequest(BaseModel):
@@ -94,11 +110,25 @@ class FullQuoteRequest(BaseModel):
     term_months: Literal[12, 24, 36, 48, 60]
     vehicle: VehicleFullInput
     product_fields: Optional[dict[str, Any]] = None
+    payment_type: PaymentType = PaymentType.CASH
+    finance_deposit: Optional[Decimal] = Field(default=None, ge=0)
+    finance_term_months: Optional[int] = None
 
     @field_validator("customer_dob")
     @classmethod
     def validate_dob(cls, v):
         return _validate_dob(v)
+
+    @model_validator(mode="after")
+    def validate_finance_fields(self):
+        if self.payment_type == PaymentType.FINANCE:
+            if self.finance_deposit is None:
+                raise ValueError("finance_deposit is required when payment_type is FINANCE")
+            if self.finance_term_months is None:
+                raise ValueError("finance_term_months is required when payment_type is FINANCE")
+            if self.finance_term_months not in _FINANCE_TERMS:
+                raise ValueError("finance_term_months must be 12, 24, or 36")
+        return self
 
 
 class PromoteQuoteRequest(BaseModel):
@@ -125,6 +155,8 @@ class QuickQuoteResponse(BaseModel):
     term_months: int
     calculated_premium: Decimal
     customer_name: str
+    payment_type: PaymentType
+    finance_breakdown: Optional[dict[str, Any]]
 
 
 class VehicleResponse(BaseModel):
@@ -153,6 +185,8 @@ class FullQuoteResponse(BaseModel):
     customer_email: Optional[str]
     product_fields: Optional[dict[str, Any]]
     vehicle: VehicleResponse
+    payment_type: PaymentType
+    finance_breakdown: Optional[dict[str, Any]]
 
 
 class QuoteDetailResponse(BaseModel):
@@ -171,6 +205,8 @@ class QuoteDetailResponse(BaseModel):
     vehicle_category: Optional[int]
     created_at: datetime
     vehicle: VehicleResponse
+    payment_type: PaymentType
+    finance_breakdown: Optional[dict[str, Any]]
 
 
 class QuoteSummaryResponse(BaseModel):
@@ -183,6 +219,7 @@ class QuoteSummaryResponse(BaseModel):
     calculated_premium: Decimal
     customer_name: str
     customer_email: Optional[str]
+    payment_type: PaymentType
 
 
 class QuoteListResponse(BaseModel):
