@@ -34,9 +34,20 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
+    tenant = current_user.tenant
     return {
         "id": current_user.id,
         "email": current_user.email,
+        "full_name": current_user.full_name,
         "role": current_user.role.value,
         "tenant_id": current_user.tenant_id,
+        "dealer_id": current_user.dealer_id,
+        "tenant": {
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "primary_colour": tenant.primary_colour,
+            "logo_url": tenant.logo_url,
+            "favicon_url": tenant.favicon_url,
+            "allowed_products": tenant.allowed_products,
+        },
     }
