@@ -26,6 +26,13 @@ class PolicyResponse(BaseModel):
     updated_at: datetime
 
 
+class DealerSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
 class PolicySummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,6 +44,7 @@ class PolicySummaryResponse(BaseModel):
     expiry_date: date
     premium: Decimal
     created_at: datetime
+    dealer: Optional[DealerSummary] = None
 
 
 class PolicyListResponse(BaseModel):
