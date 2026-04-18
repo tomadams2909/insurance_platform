@@ -75,7 +75,7 @@ def calculate_premium(
 # Product field requirements — used by routers and frontend schema endpoint
 PRODUCT_SCHEMAS = {
     "GAP": {
-        "required_fields": ["settlement_figure"],
+        "required_fields": ["loan_amount"],
         "optional_fields": [],
         "affects_price": ["vehicle_value", "term_months"],
     },

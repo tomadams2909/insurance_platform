@@ -4,6 +4,18 @@ import { useAuth } from '../context/AuthContext'
 import client from '../api/client'
 
 const ALL_PRODUCTS = ['TYRE_ESSENTIAL', 'TYRE_PLUS', 'COSMETIC', 'GAP', 'VRI', 'TLP']
+
+const TLP_LIMITS = [
+  { threshold: 15000, limit: 500 },
+  { threshold: 30000, limit: 750 },
+  { threshold: 50000, limit: 1000 },
+  { threshold: Infinity, limit: 1500 },
+]
+
+function getTlpLimit(vehicleValue) {
+  const bucket = TLP_LIMITS.find(({ threshold }) => vehicleValue <= threshold)
+  return bucket ? bucket.limit : 1500
+}
 const PRODUCT_LABELS = {
   TYRE_ESSENTIAL: 'Tyre Essential',
   TYRE_PLUS: 'Tyre Plus',
@@ -51,8 +63,7 @@ const EMPTY_FORM = {
   finance_type: '',
   product: 'GAP',
   term_months: '12',
-  settlement_figure: '',
-  tlp_limit: '',
+  loan_amount: '',
   payment_type: 'CASH',
   finance_deposit: '',
   finance_term_months: '12',
@@ -160,11 +171,11 @@ export default function FullQuotePage() {
     }
 
     const product_fields = {}
-    if (form.product === 'GAP' && form.settlement_figure) {
-      product_fields.settlement_figure = Number(form.settlement_figure)
+    if (form.product === 'GAP' && form.loan_amount) {
+      product_fields.loan_amount = Number(form.loan_amount)
     }
-    if (form.product === 'TLP' && form.tlp_limit) {
-      product_fields.tlp_limit = Number(form.tlp_limit)
+    if (form.product === 'TLP') {
+      product_fields.tlp_limit = getTlpLimit(Number(form.vehicle_value))
     }
 
     const address = (form.address_line1 || form.address_city || form.address_postcode)
@@ -335,19 +346,19 @@ export default function FullQuotePage() {
               </select>
             </Field>
             {form.product === 'GAP' && (
-              <Field label="Settlement figure (£)" required>
-                <input className={`form-input${fieldErrors.settlement_figure ? ' fq-input-error' : ''}`}
-                  type="number" min="0" step="0.01" value={form.settlement_figure}
-                  onChange={(e) => set('settlement_figure', e.target.value)} required />
-                {fieldErrors.settlement_figure && <span className="fq-field-error">{fieldErrors.settlement_figure}</span>}
+              <Field label="Loan amount (£)" required>
+                <input className={`form-input${fieldErrors.loan_amount ? ' fq-input-error' : ''}`}
+                  type="number" min="0" step="0.01" value={form.loan_amount}
+                  onChange={(e) => set('loan_amount', e.target.value)} required />
+                {fieldErrors.loan_amount && <span className="fq-field-error">{fieldErrors.loan_amount}</span>}
               </Field>
             )}
-            {form.product === 'TLP' && (
-              <Field label="TLP limit (£)" required>
-                <input className={`form-input${fieldErrors.tlp_limit ? ' fq-input-error' : ''}`}
-                  type="number" min="0" step="0.01" value={form.tlp_limit}
-                  onChange={(e) => set('tlp_limit', e.target.value)} required />
-                {fieldErrors.tlp_limit && <span className="fq-field-error">{fieldErrors.tlp_limit}</span>}
+            {form.product === 'TLP' && form.vehicle_value && (
+              <Field label="Cover limit">
+                <div className="fq-derived-value">
+                  £{getTlpLimit(Number(form.vehicle_value)).toLocaleString('en-GB')}
+                  <span className="text-muted" style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>based on vehicle value</span>
+                </div>
               </Field>
             )}
           </Section>
@@ -450,6 +461,15 @@ export default function FullQuotePage() {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr;
           gap: 0.875rem;
+        }
+        .fq-derived-value {
+          padding: 0.55rem 0.75rem;
+          background: var(--grey-50);
+          border: 1px solid var(--grey-200);
+          border-radius: var(--radius-sm);
+          font-size: 0.9375rem;
+          font-weight: 600;
+          color: var(--grey-900);
         }
         .fq-required { color: var(--danger); }
         .fq-input-error { border-color: var(--danger) !important; }

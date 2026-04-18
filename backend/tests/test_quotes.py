@@ -93,7 +93,7 @@ def test_full_quote_returns_201(client, test_user):
             "product": "GAP",
             "term_months": 12,
             "vehicle": VEHICLE_FULL,
-            "product_fields": {"settlement_figure": 18000},
+            "product_fields": {"loan_amount": 18000},
         },
         headers=auth_headers(client),
     )
@@ -101,10 +101,10 @@ def test_full_quote_returns_201(client, test_user):
     data = response.json()
     assert data["status"] == "QUOTED"
     assert data["vehicle"]["registration"] == "AB12CDE"
-    assert data["product_fields"]["settlement_figure"] == 18000
+    assert data["product_fields"]["loan_amount"] == 18000
 
 
-def test_full_quote_gap_missing_settlement_figure(client, test_user):
+def test_full_quote_gap_missing_loan_amount(client, test_user):
     response = client.post(
         "/quotes",
         json={
@@ -117,7 +117,7 @@ def test_full_quote_gap_missing_settlement_figure(client, test_user):
         headers=auth_headers(client),
     )
     assert response.status_code == 422
-    assert "settlement_figure" in response.json()["detail"]
+    assert "loan_amount" in response.json()["detail"]
 
 
 def test_full_quote_rejects_invalid_email(client, test_user):
@@ -129,7 +129,7 @@ def test_full_quote_rejects_invalid_email(client, test_user):
             "product": "GAP",
             "term_months": 12,
             "vehicle": VEHICLE_FULL,
-            "product_fields": {"settlement_figure": 18000},
+            "product_fields": {"loan_amount": 18000},
         },
         headers=auth_headers(client),
     )
@@ -170,7 +170,7 @@ def test_promote_returns_quoted_status(client, test_user, quick_quote):
         json={
             "vehicle": VEHICLE_FULL,
             "customer_email": "jane@example.com",
-            "product_fields": {"settlement_figure": 18000},
+            "product_fields": {"loan_amount": 18000},
         },
         headers=auth_headers(client),
     )
@@ -181,7 +181,7 @@ def test_promote_returns_quoted_status(client, test_user, quick_quote):
 
 def test_promote_already_promoted_returns_422(client, test_user, quick_quote):
     headers = auth_headers(client)
-    body = {"vehicle": VEHICLE_FULL, "product_fields": {"settlement_figure": 18000}}
+    body = {"vehicle": VEHICLE_FULL, "product_fields": {"loan_amount": 18000}}
     client.post(f"/quotes/{quick_quote['id']}/promote", json=body, headers=headers)
     response = client.post(f"/quotes/{quick_quote['id']}/promote", json=body, headers=headers)
     assert response.status_code == 422
@@ -190,7 +190,7 @@ def test_promote_already_promoted_returns_422(client, test_user, quick_quote):
 def test_promote_nonexistent_quote_returns_404(client, test_user):
     response = client.post(
         "/quotes/99999/promote",
-        json={"vehicle": VEHICLE_FULL, "product_fields": {"settlement_figure": 18000}},
+        json={"vehicle": VEHICLE_FULL, "product_fields": {"loan_amount": 18000}},
         headers=auth_headers(client),
     )
     assert response.status_code == 404
@@ -211,7 +211,7 @@ def test_promote_wrong_tenant_returns_403(client, db, test_user, quick_quote):
 
     response = client.post(
         f"/quotes/{quick_quote['id']}/promote",
-        json={"vehicle": VEHICLE_FULL, "product_fields": {"settlement_figure": 18000}},
+        json={"vehicle": VEHICLE_FULL, "product_fields": {"loan_amount": 18000}},
         headers=auth_headers(client, "other@example.com", "testpass123"),
     )
     assert response.status_code == 403

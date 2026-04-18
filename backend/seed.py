@@ -405,7 +405,7 @@ def seed():
             _create_quote(db, autosure, broker_au, ProductType.GAP, 22000, 24,
                 "Alice Tanner", "alice@example.com",
                 registration="GA21ABC", make="Volkswagen", model="Golf", year=2021,
-                finance_type="PCP", product_fields={"settlement_figure": 18000})
+                finance_type="PCP", product_fields={"loan_amount": 18000})
             _create_quote(db, autosure, broker_au, ProductType.VRI, 35000, 12,
                 "Bob Keane", "bob@example.com",
                 registration="VR22XYZ", make="BMW", model="3 Series", year=2022)
@@ -420,7 +420,7 @@ def seed():
             q_issued = _create_quote(db, autosure, citybroker_au, ProductType.GAP, 25000, 36,
                 "David Singh", "david@example.com",
                 registration="GA23GHI", make="Toyota", model="Corolla", year=2023,
-                finance_type="HP", product_fields={"settlement_figure": 21000},
+                finance_type="HP", product_fields={"loan_amount": 21000},
                 dealer=city_motors)
             p_issued = _bind(db, q_issued, citybroker_au, inception_date=date(2025, 2, 1))
             _issue(db, p_issued, citybroker_au)
@@ -468,7 +468,7 @@ def seed():
             _create_quote(db, driveshield, broker_ds, ProductType.GAP, 16000, 12,
                 "Frank Obi", "frank@example.com",
                 registration="GA21DSH", make="Nissan", model="Juke", year=2021,
-                finance_type="PCP", product_fields={"settlement_figure": 13000})
+                finance_type="PCP", product_fields={"loan_amount": 13000})
 
             # 1 ISSUED policy — dealer-attributed via Shield Direct London
             q_ds_issued = _create_quote(db, driveshield, shieldbroker_ds, ProductType.TYRE_ESSENTIAL, 19000, 12,
@@ -519,7 +519,7 @@ def seed():
             q_pc_issued = _create_quote(db, premiumcover, broker_pc, ProductType.GAP, 55000, 24,
                 "James Harrow", "james@example.com",
                 registration="GA22PCO", make="Porsche", model="Cayenne", year=2022,
-                finance_type="PCP", product_fields={"settlement_figure": 48000},
+                finance_type="PCP", product_fields={"loan_amount": 48000},
                 dealer=elite_mayfair)
             p_pc_issued = _bind(db, q_pc_issued, broker_pc, inception_date=date(2025, 2, 15))
             _issue(db, p_pc_issued, broker_pc)

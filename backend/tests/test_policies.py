@@ -25,7 +25,7 @@ FULL_QUOTE_PAYLOAD = {
         "purchase_date": "2024-01-10",
         "finance_type": "PCP",
     },
-    "product_fields": {"settlement_figure": 15000},
+    "product_fields": {"loan_amount": 15000},
 }
 
 
