@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import QuickQuotePage from './pages/QuickQuotePage'
 import FullQuotePage from './pages/FullQuotePage'
 import QuoteListPage from './pages/QuoteListPage'
+import QuoteDetailPage from './pages/QuoteDetailPage'
 
 function ProtectedLayout({ children }) {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/quotes/quick" element={<ProtectedLayout><QuickQuotePage /></ProtectedLayout>} />
           <Route path="/quotes/new" element={<ProtectedLayout><FullQuotePage /></ProtectedLayout>} />
           <Route path="/quotes" element={<ProtectedLayout><QuoteListPage /></ProtectedLayout>} />
+          <Route path="/quotes/:id" element={<ProtectedLayout><QuoteDetailPage /></ProtectedLayout>} />
           <Route path="*" element={<ProtectedLayout><div className="page"><h2>Page not found</h2></div></ProtectedLayout>} />
         </Routes>
       </BrowserRouter>

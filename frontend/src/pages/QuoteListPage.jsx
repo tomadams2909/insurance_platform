@@ -138,7 +138,7 @@ export default function QuoteListPage() {
                 <tr><td colSpan={COLUMNS.length} className="ql-empty">No quotes found</td></tr>
               )}
               {!loading && quotes.map((q) => (
-                <tr key={q.id} onClick={() => navigate(`/quotes/${q.id}`)}>
+                <tr key={q.id} onClick={() => navigate(q.status === 'QUICK_QUOTE' ? `/quotes/new?from=${q.id}` : `/quotes/${q.id}`)}>
                   <td>{q.customer_name}</td>
                   <td>{PRODUCT_LABELS[q.product] ?? q.product}</td>
                   <td><StatusBadge status={q.status} /></td>
