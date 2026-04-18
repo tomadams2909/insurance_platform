@@ -206,6 +206,8 @@ class QuoteDetailResponse(BaseModel):
     created_at: datetime
     vehicle: VehicleResponse
     payment_type: PaymentType
+    finance_deposit: Optional[Decimal]
+    finance_term_months: Optional[int]
     finance_breakdown: Optional[dict[str, Any]]
 
 
