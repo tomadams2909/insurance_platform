@@ -11,7 +11,7 @@ from models.quote import Quote, QuoteStatus, ProductType, PaymentType
 from models.tenant import Tenant
 from models.vehicle import Vehicle
 from models.user import User, UserRole
-from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse
+from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse, PriceCalculationResponse
 from services.pricing import calculate_premium, PRODUCT_SCHEMAS, get_vehicle_category
 from services.finance import calculate_finance
 from auth.dependencies import require_role
@@ -42,6 +42,25 @@ def _resolve_finance(payload, premium: Decimal):
         "total_repayable": str(breakdown.total_repayable),
         "apr": str(breakdown.apr),
     }
+
+
+@router.post("/calculate", response_model=PriceCalculationResponse, status_code=200)
+def calculate_price(
+    payload: QuickQuoteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(*_QUOTE_ROLES)),
+):
+    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if tenant.allowed_products is not None and payload.product.value not in tenant.allowed_products:
+        raise HTTPException(status_code=403, detail=f"Product {payload.product.value} is not available for this tenant")
+
+    premium = calculate_premium(
+        product=payload.product.value,
+        vehicle_value=Decimal(str(payload.vehicle.purchase_price)),
+        term_months=payload.term_months,
+    )
+    finance_breakdown = _resolve_finance(payload, premium)
+    return PriceCalculationResponse(calculated_premium=premium, finance_breakdown=finance_breakdown)
 
 
 @router.post("/quick", response_model=QuickQuoteResponse, status_code=201)

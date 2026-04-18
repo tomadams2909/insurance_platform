@@ -229,3 +229,8 @@ class QuoteListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class PriceCalculationResponse(BaseModel):
+    calculated_premium: Decimal
+    finance_breakdown: Optional[dict[str, Any]] = None

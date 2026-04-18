@@ -140,7 +140,7 @@ export default function FullQuotePage() {
       body.finance_term_months = Number(form.finance_term_months)
     }
 
-    client.post('/quotes/quick', body)
+    client.post('/quotes/calculate', body)
       .then(({ data }) => {
         setPreviewPremium(data.calculated_premium)
         setPreviewFinance(data.finance_breakdown ?? null)

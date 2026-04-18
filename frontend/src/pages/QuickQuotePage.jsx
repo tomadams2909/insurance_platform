@@ -42,28 +42,46 @@ export default function QuickQuotePage() {
     setError(null)
   }
 
+  function buildBody() {
+    const body = {
+      customer_name: form.customer_name,
+      product: form.product,
+      term_months: Number(form.term_months),
+      vehicle: { purchase_price: Number(form.vehicle_value) },
+      payment_type: form.payment_type,
+    }
+    if (form.payment_type === 'FINANCE') {
+      body.finance_deposit = Number(form.finance_deposit)
+      body.finance_term_months = Number(form.finance_term_months)
+    }
+    return body
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
     setResult(null)
     setLoading(true)
     try {
-      const body = {
-        customer_name: form.customer_name,
-        product: form.product,
-        term_months: Number(form.term_months),
-        vehicle: { purchase_price: Number(form.vehicle_value) },
-        payment_type: form.payment_type,
-      }
-      if (form.payment_type === 'FINANCE') {
-        body.finance_deposit = Number(form.finance_deposit)
-        body.finance_term_months = Number(form.finance_term_months)
-      }
-      const { data } = await client.post('/quotes/quick', body)
+      const { data } = await client.post('/quotes/calculate', buildBody())
       setResult(data)
     } catch (err) {
       const detail = err.response?.data?.detail
-      setError(typeof detail === 'string' ? detail : 'Failed to create quote. Please check your inputs.')
+      setError(typeof detail === 'string' ? detail : 'Failed to calculate price. Please check your inputs.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleProceed() {
+    setError(null)
+    setLoading(true)
+    try {
+      const { data } = await client.post('/quotes/quick', buildBody())
+      navigate(`/quotes/new?from=${data.id}`)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Failed to save quote. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -196,15 +214,14 @@ export default function QuickQuotePage() {
           <div className="card qq-result-card">
             <div className="card-header">
               <span style={{ fontWeight: 600 }}>Indicative price</span>
-              <span className="badge badge-quoted">Quote #{result.id}</span>
             </div>
             <div className="card-body">
               <div className="qq-premium">{fmt(result.calculated_premium)}</div>
               <p className="text-muted" style={{ marginBottom: '1.25rem' }}>
-                {PRODUCT_LABELS[result.product] ?? result.product} · {result.term_months} months · {result.payment_type}
+                {PRODUCT_LABELS[form.product] ?? form.product} · {form.term_months} months · {form.payment_type}
               </p>
 
-              {result.finance_breakdown && (() => {
+              {result.finance_breakdown && form.payment_type === 'FINANCE' && (() => {
                 const fb = result.finance_breakdown
                 const deposit = Number(form.finance_deposit) || 0
                 const totalCost = Number(fb.total_repayable) + deposit
@@ -243,9 +260,10 @@ export default function QuickQuotePage() {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: '1.25rem' }}
-                onClick={() => navigate(`/quotes/new?from=${result.id}`)}
+                onClick={handleProceed}
+                disabled={loading}
               >
-                Proceed to full quote
+                {loading ? 'Saving…' : 'Proceed to full quote'}
               </button>
             </div>
           </div>
