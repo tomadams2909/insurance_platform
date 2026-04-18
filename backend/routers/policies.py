@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from sqlalchemy import cast, String
 from sqlalchemy.orm import Session
 
 from auth.dependencies import require_role
@@ -327,6 +328,16 @@ def download_latest_document(
     )
 
 
+_POLICY_SORT_FIELDS = {
+    "policy_number": Policy.policy_number,
+    "product": cast(Policy.product, String),
+    "status": cast(Policy.status, String),
+    "inception_date": Policy.inception_date,
+    "expiry_date": Policy.expiry_date,
+    "premium": Policy.premium,
+}
+
+
 @router.get("/policies", response_model=PolicyListResponse)
 def list_policies(
     db: Session = Depends(get_db),
@@ -335,6 +346,8 @@ def list_policies(
     status: Optional[str] = Query(default=None),
     date_from: Optional[date] = Query(default=None),
     date_to: Optional[date] = Query(default=None),
+    sort_by: str = Query(default="inception_date"),
+    sort_dir: str = Query(default="desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ):
@@ -360,8 +373,12 @@ def list_policies(
     if date_to:
         query = query.filter(Policy.inception_date <= date_to)
 
+    sort_col = _POLICY_SORT_FIELDS.get(sort_by, Policy.inception_date)
+    order = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+
     total = query.count()
-    items = query.order_by(Policy.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    rows = query.order_by(order).offset((page - 1) * page_size).limit(page_size).all()
+    items = [PolicySummaryResponse.from_orm_with_name(p) for p in rows]
 
     return PolicyListResponse(items=items, total=total, page=page, page_size=page_size)
 

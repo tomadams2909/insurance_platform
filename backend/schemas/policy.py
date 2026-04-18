@@ -44,7 +44,14 @@ class PolicySummaryResponse(BaseModel):
     expiry_date: date
     premium: Decimal
     created_at: datetime
+    insured_name: Optional[str] = None
     dealer: Optional[DealerSummary] = None
+
+    @classmethod
+    def from_orm_with_name(cls, policy):
+        obj = cls.model_validate(policy)
+        obj.insured_name = (policy.current_data or {}).get("customer", {}).get("name")
+        return obj
 
 
 class PolicyListResponse(BaseModel):
