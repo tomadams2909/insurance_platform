@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import cast, String
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -240,6 +241,16 @@ def get_quote(
     return quote
 
 
+_QUOTE_SORT_FIELDS = {
+    "customer_name": Quote.customer_name,
+    "product": cast(Quote.product, String),
+    "status": cast(Quote.status, String),
+    "payment_type": cast(Quote.payment_type, String),
+    "calculated_premium": Quote.calculated_premium,
+    "created_at": Quote.created_at,
+}
+
+
 @router.get("", response_model=QuoteListResponse)
 def list_quotes(
     db: Session = Depends(get_db),
@@ -248,6 +259,8 @@ def list_quotes(
     status: Optional[str] = Query(default=None),
     date_from: Optional[date] = Query(default=None),
     date_to: Optional[date] = Query(default=None),
+    sort_by: str = Query(default="created_at"),
+    sort_dir: str = Query(default="desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ):
@@ -271,7 +284,10 @@ def list_quotes(
     if date_to:
         query = query.filter(Quote.created_at <= date_to)
 
+    sort_col = _QUOTE_SORT_FIELDS.get(sort_by, Quote.created_at)
+    order = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+
     total = query.count()
-    items = query.order_by(Quote.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = query.order_by(order).offset((page - 1) * page_size).limit(page_size).all()
 
     return QuoteListResponse(items=items, total=total, page=page, page_size=page_size)
