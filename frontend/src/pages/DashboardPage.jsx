@@ -67,10 +67,10 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <button className="btn btn-primary" onClick={() => navigate('/quotes/quick')}>
-            New Quote
+            Quick Quote
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/policies')}>
-            View Policies
+          <button className="btn btn-primary" onClick={() => navigate('/quotes/new')}>
+            Full Quote
           </button>
         </div>
       </div>

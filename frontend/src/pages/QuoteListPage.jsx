@@ -86,9 +86,14 @@ export default function QuoteListPage() {
     <div className="page">
       <div className="page-header">
         <h2 className="page-title">Quotes</h2>
-        <button className="btn btn-primary" onClick={() => navigate('/quotes/new')}>
-          New Quote
-        </button>
+        <div className="flex gap-2">
+          <button className="btn btn-primary" onClick={() => navigate('/quotes/quick')}>
+            Quick Quote
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate('/quotes/new')}>
+            Full Quote
+          </button>
+        </div>
       </div>
 
       <div className="card">
