@@ -13,7 +13,7 @@ import models.policy_transaction
 import models.document
 import models.dealer
 import models.dealer_commission
-from routers import auth, dealers, quotes, policies, internal
+from routers import auth, dealers, quotes, policies, internal, reports
 
 app = FastAPI(title="Insurance Platform")
 
@@ -34,6 +34,7 @@ app.include_router(quotes.router)
 app.include_router(policies.router)
 app.include_router(dealers.router)
 app.include_router(internal.router)
+app.include_router(reports.router)
 
 
 @app.get("/health")
