@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.document import DocumentType
 from models.policy import PolicyStatus
-from models.quote import ProductType
+from models.quote import ProductType, PaymentType
 
 
 class PolicyResponse(BaseModel):
@@ -18,10 +18,14 @@ class PolicyResponse(BaseModel):
     status: PolicyStatus
     inception_date: date
     expiry_date: date
+    term_months: int
+    payment_type: PaymentType
     premium: Decimal
     dealer_fee: Optional[Decimal]
     broker_commission: Optional[Decimal]
-    current_data: dict[str, Any]
+    dealer_fee_rate: Optional[Decimal]
+    broker_commission_rate: Optional[Decimal]
+    policy_data: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -50,7 +54,7 @@ class PolicySummaryResponse(BaseModel):
     @classmethod
     def from_orm_with_name(cls, policy):
         obj = cls.model_validate(policy)
-        obj.insured_name = (policy.current_data or {}).get("customer", {}).get("name")
+        obj.insured_name = (policy.policy_data or {}).get("customer", {}).get("name")
         return obj
 
 
@@ -69,6 +73,8 @@ class TransactionResponse(BaseModel):
     created_at: datetime
     created_by: int
     premium_delta: Optional[Decimal]
+    dealer_fee_delta: Optional[Decimal]
+    broker_commission_delta: Optional[Decimal]
     reason_text: Optional[str]
     description: str
 

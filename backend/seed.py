@@ -9,8 +9,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
-from sqlalchemy import func
-
 from auth.security import get_password_hash
 from database import SessionLocal
 from models.dealer import Dealer
@@ -18,7 +16,7 @@ from models.dealer_commission import CommissionType, DealerCommission
 from models.document import DocumentType, PolicyDocument
 from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
-from models.quote import ProductType, Quote, QuoteStatus
+from models.quote import ProductType, Quote, QuoteStatus, PaymentType
 from models.tenant import Tenant
 from models.user import User, UserRole
 from models.vehicle import Vehicle
@@ -98,16 +96,6 @@ def _next_policy_number(db, year):
     return f"{prefix}{str(count + 1).zfill(5)}"
 
 
-def _effective_premium(db, policy):
-    result = db.query(func.sum(PolicyTransaction.premium_delta)).filter(
-        PolicyTransaction.policy_id == policy.id,
-        PolicyTransaction.transaction_type.in_(
-            [TransactionType.BIND, TransactionType.ENDORSEMENT]
-        ),
-    ).scalar()
-    return Decimal(str(result or 0)).quantize(Decimal("0.01"))
-
-
 def _create_quote(
     db, tenant, user, product, purchase_price, term_months,
     customer_name, customer_email,
@@ -132,6 +120,7 @@ def _create_quote(
         calculated_premium=premium,
         created_by=user.id,
         dealer_id=dealer.id if dealer else None,
+        payment_type=PaymentType.CASH,
     )
     db.add(quote)
     db.flush()
@@ -153,7 +142,7 @@ def _create_quote(
 def _bind(db, quote, user, inception_date):
     expiry = _add_months(inception_date, quote.term_months)
     v = quote.vehicle
-    current_data = {
+    policy_data = {
         "customer": {
             "name": quote.customer_name,
             "dob": quote.customer_dob,
@@ -166,16 +155,13 @@ def _bind(db, quote, user, inception_date):
             "model": v.model if v else None,
             "year": v.year if v else None,
             "purchase_price": str(v.purchase_price) if v else None,
-            "purchase_date": v.purchase_date if v else None,
+            "purchase_date": str(v.purchase_date) if v else None,
             "finance_type": v.finance_type if v else None,
         },
-        "product": quote.product.value,
         "product_fields": quote.product_fields,
-        "premium": str(quote.calculated_premium),
-        "term_months": quote.term_months,
     }
     if quote.dealer:
-        current_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
+        policy_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
 
     commission = calculate_commission(
         premium=Decimal(str(quote.calculated_premium)),
@@ -188,16 +174,20 @@ def _bind(db, quote, user, inception_date):
     policy = Policy(
         quote_id=quote.id,
         tenant_id=quote.tenant_id,
+        dealer_id=quote.dealer_id,
         product=quote.product,
         status=PolicyStatus.BOUND,
         policy_number=_next_policy_number(db, inception_date.year),
         inception_date=inception_date,
         expiry_date=expiry,
+        term_months=quote.term_months,
+        payment_type=quote.payment_type,
         premium=quote.calculated_premium,
         dealer_fee=commission.dealer_fee,
         broker_commission=commission.broker_commission,
-        current_data=current_data,
-        dealer_id=quote.dealer_id,
+        dealer_fee_rate=commission.dealer_fee_rate,
+        broker_commission_rate=commission.broker_commission_rate,
+        policy_data=policy_data,
     )
     db.add(policy)
     db.flush()
@@ -207,16 +197,12 @@ def _bind(db, quote, user, inception_date):
         policy_id=policy.id,
         transaction_type=TransactionType.BIND,
         created_by=user.id,
-        data_before=None,
-        data_after=current_data,
         premium_delta=Decimal(str(quote.calculated_premium)),
-        commission_data={
-            "gross_premium": str(commission.gross_premium),
-            "dealer_fee": str(commission.dealer_fee),
-            "broker_commission": str(commission.broker_commission),
-            "net_premium_to_insurer": str(commission.net_premium_to_insurer),
-            "total_payable": str(commission.total_payable),
-        },
+        dealer_fee_delta=commission.dealer_fee,
+        broker_commission_delta=commission.broker_commission,
+        dealer_fee_rate=commission.dealer_fee_rate,
+        broker_commission_rate=commission.broker_commission_rate,
+        snapshot=policy_data,
     ))
     db.flush()
     return policy
@@ -228,18 +214,15 @@ def _issue(db, policy, user):
         policy_id=policy.id,
         transaction_type=TransactionType.ISSUE,
         created_by=user.id,
-        data_before=None,
-        data_after=policy.current_data,
-        premium_delta=None,
+        snapshot=policy.policy_data,
     ))
     db.flush()
-    eff = _effective_premium(db, policy)
     pdf = generate_policy_schedule(
         policy,
         tenant_name=policy.tenant.name,
         primary_colour=policy.tenant.primary_colour,
         logo_url=policy.tenant.logo_url,
-        effective_premium=eff,
+        effective_premium=Decimal(str(policy.premium)),
     )
     db.add(PolicyDocument(
         policy_id=policy.id,
@@ -252,24 +235,27 @@ def _issue(db, policy, user):
 
 
 def _endorse(db, policy, user, reason, customer_name=None, customer_email=None):
-    data_before = dict(policy.current_data)
-    updated = dict(policy.current_data)
+    before_snapshot = dict(policy.policy_data)
+    updated = dict(policy.policy_data)
     customer = dict(updated.get("customer", {}))
     if customer_name:
         customer["name"] = customer_name
     if customer_email:
         customer["email"] = customer_email
     updated["customer"] = customer
-    policy.current_data = updated
+    policy.policy_data = updated
 
     tx = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.ENDORSEMENT,
         created_by=user.id,
-        data_before=data_before,
-        data_after=updated,
         premium_delta=Decimal("0"),
+        dealer_fee_delta=Decimal("0"),
+        broker_commission_delta=Decimal("0"),
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
         reason_text=reason,
+        snapshot=updated,
     )
     db.add(tx)
     db.flush()
@@ -279,6 +265,7 @@ def _endorse(db, policy, user, reason, customer_name=None, customer_email=None):
         tenant_name=policy.tenant.name,
         primary_colour=policy.tenant.primary_colour,
         logo_url=policy.tenant.logo_url,
+        before_snapshot=before_snapshot,
     )
     db.add(PolicyDocument(
         policy_id=policy.id,
@@ -294,18 +281,27 @@ def _cancel(db, policy, user, cancellation_date, reason):
     policy.status = PolicyStatus.CANCELLED
     total_days = (policy.expiry_date - policy.inception_date).days
     days_remaining = (policy.expiry_date - cancellation_date).days
-    eff = _effective_premium(db, policy)
+    eff = Decimal(str(policy.premium))
     refund = (eff * Decimal(days_remaining) / Decimal(total_days)).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
+    old_commission = calculate_commission(eff, policy.product, policy.dealer, policy.tenant, db)
+    clawback_ratio = Decimal(days_remaining) / Decimal(total_days)
+    dealer_fee_delta = -(old_commission.dealer_fee * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = -(old_commission.broker_commission * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    snapshot = {**policy.policy_data, "cancellation_date": str(cancellation_date)}
     tx = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.CANCELLATION,
         created_by=user.id,
-        data_before=policy.current_data,
-        data_after={**policy.current_data, "cancellation_date": str(cancellation_date)},
         premium_delta=-refund,
+        dealer_fee_delta=dealer_fee_delta,
+        broker_commission_delta=broker_commission_delta,
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
         reason_text=reason,
+        snapshot=snapshot,
     )
     db.add(tx)
     db.flush()
@@ -327,25 +323,33 @@ def _cancel(db, policy, user, cancellation_date, reason):
 
 
 def _reinstate(db, policy, user, cancel_tx, reinstatement_date):
-    cancellation_date = date.fromisoformat(cancel_tx.data_after["cancellation_date"])
+    cancellation_date = date.fromisoformat(cancel_tx.snapshot["cancellation_date"])
     days_remaining = (policy.expiry_date - cancellation_date).days
     new_expiry = reinstatement_date + timedelta(days=days_remaining)
     total_days = (policy.expiry_date - policy.inception_date).days
-    eff = _effective_premium(db, policy)
+    eff = Decimal(str(policy.premium))
     reinstatement_premium = (eff * Decimal(days_remaining) / Decimal(total_days)).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
+    old_commission = calculate_commission(eff, policy.product, policy.dealer, policy.tenant, db)
+    recharge_ratio = Decimal(days_remaining) / Decimal(total_days)
+    dealer_fee_delta = (old_commission.dealer_fee * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = (old_commission.broker_commission * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     policy.status = PolicyStatus.ISSUED
     policy.expiry_date = new_expiry
+    snapshot = {**policy.policy_data, "expiry_date": str(new_expiry), "reinstatement_date": str(reinstatement_date)}
 
     tx = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.REINSTATEMENT,
         created_by=user.id,
-        data_before={**policy.current_data, "expiry_date": str(cancel_tx.data_after.get("cancellation_date"))},
-        data_after={**policy.current_data, "expiry_date": str(new_expiry), "reinstatement_date": str(reinstatement_date)},
         premium_delta=reinstatement_premium,
+        dealer_fee_delta=dealer_fee_delta,
+        broker_commission_delta=broker_commission_delta,
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
+        snapshot=snapshot,
     )
     db.add(tx)
     db.flush()
@@ -401,7 +405,6 @@ def seed():
             tenant_id=autosure.id, dealer_id=city_motors.id)
 
         if db.query(Policy).filter(Policy.tenant_id == autosure.id).count() == 0:
-            # 2 QUOTED quotes
             _create_quote(db, autosure, broker_au, ProductType.GAP, 22000, 24,
                 "Alice Tanner", "alice@example.com",
                 registration="GA21ABC", make="Volkswagen", model="Golf", year=2021,
@@ -410,13 +413,11 @@ def seed():
                 "Bob Keane", "bob@example.com",
                 registration="VR22XYZ", make="BMW", model="3 Series", year=2022)
 
-            # 1 BOUND policy
             q_bound = _create_quote(db, autosure, broker_au, ProductType.TYRE_PLUS, 18000, 12,
                 "Carol Webb", "carol@example.com",
                 registration="TP20DEF", make="Honda", model="Civic", year=2020)
             _bind(db, q_bound, broker_au, inception_date=date(2025, 3, 1))
 
-            # 1 ISSUED policy — dealer-attributed via City Motors
             q_issued = _create_quote(db, autosure, citybroker_au, ProductType.GAP, 25000, 36,
                 "David Singh", "david@example.com",
                 registration="GA23GHI", make="Toyota", model="Corolla", year=2023,
@@ -425,7 +426,6 @@ def seed():
             p_issued = _bind(db, q_issued, citybroker_au, inception_date=date(2025, 2, 1))
             _issue(db, p_issued, citybroker_au)
 
-            # 1 ISSUED policy with endorsement + cancellation + reinstatement history
             q_rich = _create_quote(db, autosure, broker_au, ProductType.COSMETIC, 28000, 24,
                 "Eve Morton", "eve@example.com",
                 registration="CO22JKL", make="Mercedes", model="A-Class", year=2022)
@@ -464,13 +464,11 @@ def seed():
             tenant_id=driveshield.id, dealer_id=shield_london.id)
 
         if db.query(Policy).filter(Policy.tenant_id == driveshield.id).count() == 0:
-            # 1 QUOTED quote
             _create_quote(db, driveshield, broker_ds, ProductType.GAP, 16000, 12,
                 "Frank Obi", "frank@example.com",
                 registration="GA21DSH", make="Nissan", model="Juke", year=2021,
                 finance_type="PCP", product_fields={"loan_amount": 13000})
 
-            # 1 ISSUED policy — dealer-attributed via Shield Direct London
             q_ds_issued = _create_quote(db, driveshield, shieldbroker_ds, ProductType.TYRE_ESSENTIAL, 19000, 12,
                 "Grace Kim", "grace@example.com",
                 registration="TE22DSH", make="Hyundai", model="Tucson", year=2022,
@@ -478,7 +476,6 @@ def seed():
             p_ds_issued = _bind(db, q_ds_issued, shieldbroker_ds, inception_date=date(2025, 1, 10))
             _issue(db, p_ds_issued, shieldbroker_ds)
 
-            # 1 CANCELLED policy
             q_ds_cancel = _create_quote(db, driveshield, broker_ds, ProductType.COSMETIC, 21000, 12,
                 "Harry Patel", "harry@example.com",
                 registration="CO23DSH", make="Kia", model="Sportage", year=2023)
@@ -510,12 +507,10 @@ def seed():
             full_name="PremiumCover Broker", role=UserRole.BROKER, tenant_id=premiumcover.id)
 
         if db.query(Policy).filter(Policy.tenant_id == premiumcover.id).count() == 0:
-            # 1 QUOTED quote (VRI)
             _create_quote(db, premiumcover, broker_pc, ProductType.VRI, 65000, 24,
                 "Isabella Zhao", "isabella@example.com",
                 registration="VR23PCO", make="Audi", model="Q7", year=2023)
 
-            # 1 ISSUED policy (GAP, dealer-attributed via Elite Autos Mayfair)
             q_pc_issued = _create_quote(db, premiumcover, broker_pc, ProductType.GAP, 55000, 24,
                 "James Harrow", "james@example.com",
                 registration="GA22PCO", make="Porsche", model="Cayenne", year=2022,

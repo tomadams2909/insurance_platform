@@ -124,7 +124,7 @@ export default function PolicyDetailPage() {
   function openModal(name) {
     setActionError(null)
     if (name === 'endorse' && policy) {
-      const cd = policy.current_data || {}
+      const cd = policy.policy_data || {}
       const customer = cd.customer || {}
       const addr = customer.address || {}
       setEndorseFields({
@@ -158,7 +158,7 @@ export default function PolicyDetailPage() {
     setActionError(null)
     try {
       const changed_fields = {}
-      const orig = policy.current_data?.customer || {}
+      const orig = policy.policy_data?.customer || {}
       if (endorseFields.customer_name && endorseFields.customer_name !== orig.name)
         changed_fields.customer_name = endorseFields.customer_name
       if (endorseFields.customer_email && endorseFields.customer_email !== orig.email)
@@ -231,7 +231,7 @@ export default function PolicyDetailPage() {
   if (error) return <div className="page"><p style={{ color: 'var(--danger)' }}>{error}</p></div>
   if (!policy) return null
 
-  const cd = policy.current_data || {}
+  const cd = policy.policy_data || {}
   const customer = cd.customer || {}
   const vehicle = cd.vehicle || {}
   const fb = cd.finance_breakdown
@@ -239,18 +239,11 @@ export default function PolicyDetailPage() {
     ? [customer.address.line1, customer.address.city, customer.address.postcode].filter(Boolean).join(', ')
     : null
 
-  const currentPremium = transactions.reduce(
-    (sum, tx) => sum + Number(tx.premium_delta ?? 0),
-    0
-  )
-  const premiumChanged = currentPremium !== Number(policy.premium)
-
   const estimatedRefund = policy.status === 'ISSUED'
-    ? proRataRefund(currentPremium, policy.inception_date, policy.expiry_date, cancelForm.cancellation_date)
+    ? proRataRefund(policy.premium, policy.inception_date, policy.expiry_date, cancelForm.cancellation_date)
     : 0
 
-  const termMonths = cd.term_months || 12
-  const newExpiry = addMonths(reinstateForm.reinstatement_date, termMonths)
+  const newExpiry = addMonths(reinstateForm.reinstatement_date, policy.term_months)
 
   return (
     <div className="page">
@@ -312,22 +305,16 @@ export default function PolicyDetailPage() {
           <div className="pd-col">
             <Section title="Cover">
               <Row label="Product" value={PRODUCT_LABELS[policy.product] ?? policy.product} />
-              <Row label="Term" value={cd.term_months ? `${cd.term_months} months` : null} />
+              <Row label="Term" value={`${policy.term_months} months`} />
               <Row label="Inception" value={fmtDate(policy.inception_date)} />
               <Row label="Expiry" value={fmtDate(policy.expiry_date)} />
               {cd.product_fields?.loan_amount && <Row label="Loan amount" value={fmt(cd.product_fields.loan_amount)} />}
               {cd.product_fields?.tlp_limit && <Row label="Cover limit" value={fmt(cd.product_fields.tlp_limit)} />}
-              {premiumChanged
-                ? <>
-                    <Row label="Original premium" value={fmt(policy.premium)} />
-                    <Row label="Current premium" value={<strong style={{ color: 'var(--brand-primary)' }}>{fmt(currentPremium)}</strong>} />
-                  </>
-                : <Row label="Premium" value={fmt(policy.premium)} />
-              }
+              <Row label="Premium" value={fmt(policy.premium)} />
             </Section>
 
             <Section title="Payment">
-              <Row label="Payment type" value={cd.payment_type} />
+              <Row label="Payment type" value={policy.payment_type} />
               {fb ? (
                 <>
                   <Row label="Down payment" value={fmt(cd.finance_deposit || 0)} />
@@ -339,7 +326,7 @@ export default function PolicyDetailPage() {
                   <Row label="Total payable (inc. deposit)" value={fmt(Number(fb.total_repayable) + Number(cd.finance_deposit || 0))} />
                 </>
               ) : (
-                <Row label="Premium" value={fmt(currentPremium)} />
+                <Row label="Premium" value={fmt(policy.premium)} />
               )}
             </Section>
 
@@ -350,7 +337,7 @@ export default function PolicyDetailPage() {
                 <Row label="Broker commission" value={policy.broker_commission ? fmt(policy.broker_commission) : null} />
                 <Row label="Net premium to insurer" value={
                   policy.broker_commission != null
-                    ? fmt(currentPremium - Number(policy.broker_commission))
+                    ? fmt(Number(policy.premium) - Number(policy.broker_commission))
                     : null
                 } />
               </Section>
@@ -368,12 +355,13 @@ export default function PolicyDetailPage() {
                   <th>Type</th>
                   <th>Date</th>
                   <th>Description</th>
-                  <th className="text-right">Premium delta</th>
+                  <th className="text-right">Premium</th>
+                  <th className="text-right">Broker comm.</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.length === 0 && (
-                  <tr><td colSpan="4" className="ql-empty">No transactions</td></tr>
+                  <tr><td colSpan="5" className="ql-empty">No transactions</td></tr>
                 )}
                 {transactions.map((tx) => (
                   <tr key={tx.id} style={{ cursor: 'default' }}>
@@ -389,6 +377,12 @@ export default function PolicyDetailPage() {
                       fontWeight: tx.premium_delta ? 600 : 400,
                     }}>
                       {tx.premium_delta != null ? `${tx.premium_delta > 0 ? '+' : ''}${fmt(tx.premium_delta)}` : '—'}
+                    </td>
+                    <td className="text-right" style={{
+                      color: tx.broker_commission_delta > 0 ? 'var(--success)' : tx.broker_commission_delta < 0 ? 'var(--danger)' : 'var(--grey-500)',
+                      fontWeight: tx.broker_commission_delta ? 600 : 400,
+                    }}>
+                      {tx.broker_commission_delta != null ? `${tx.broker_commission_delta > 0 ? '+' : ''}${fmt(tx.broker_commission_delta)}` : '—'}
                     </td>
                   </tr>
                 ))}

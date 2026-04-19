@@ -108,7 +108,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
 
 
 def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = None, logo_url: str = None, effective_premium=None) -> bytes:
-    data = policy.current_data
+    data = policy.policy_data
     customer = data.get("customer", {})
     vehicle = data.get("vehicle", {})
     product_fields = data.get("product_fields") or {}
@@ -122,20 +122,18 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
         ] if p
     )
 
-    # Use effective premium (sum of BIND + ENDORSEMENT deltas) if provided,
-    # falling back to the original bind premium
     display_premium = effective_premium if effective_premium is not None else policy.premium
 
     pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name, primary_colour, logo_url)
 
     section_heading("Cover Details")
-    row("Product:", data.get("product", ""))
-    row("Term:", f"{data.get('term_months', '')} months")
+    row("Product:", policy.product.value)
+    row("Term:", f"{policy.term_months} months")
     row("Inception Date:", str(policy.inception_date))
     row("Expiry Date:", str(policy.expiry_date))
     pdf.ln(4)
 
-    payment_type = data.get("payment_type", "CASH")
+    payment_type = policy.payment_type.value
     fb = data.get("finance_breakdown") or {}
 
     if payment_type == "FINANCE" and fb:
@@ -195,7 +193,7 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
 
 
 def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
-    data = transaction.data_after or {}
+    data = transaction.snapshot or {}
     cancellation_date = data.get("cancellation_date", str(date.today()))
     refund_amount = abs(float(transaction.premium_delta or 0))
 
@@ -213,8 +211,7 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_
     section_heading("Refund Information")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_x(20)
-    policy_data = policy.current_data or {}
-    if policy_data.get("payment_type") == "FINANCE":
+    if policy.payment_type.value == "FINANCE":
         pdf.multi_cell(
             170, 6,
             f"A pro-rata refund of £{refund_amount:.2f} will be processed to your finance account, "
@@ -235,7 +232,7 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_
 
 
 def generate_reinstatement_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
-    data = transaction.data_after or {}
+    data = transaction.snapshot or {}
     new_expiry = data.get("expiry_date", str(policy.expiry_date))
     reinstatement_date = data.get("reinstatement_date", str(date.today()))
     amount_due = float(transaction.premium_delta or 0)
@@ -399,9 +396,9 @@ def generate_finance_agreement(
     return bytes(pdf.output())
 
 
-def generate_endorsement_certificate(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
-    data_before = transaction.data_before or {}
-    data_after = transaction.data_after or {}
+def generate_endorsement_certificate(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None, before_snapshot: dict = None) -> bytes:
+    data_before = before_snapshot or {}
+    data_after = transaction.snapshot or {}
 
     before_customer = data_before.get("customer", {})
     after_customer = data_after.get("customer", {})

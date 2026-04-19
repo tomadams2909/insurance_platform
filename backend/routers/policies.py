@@ -15,9 +15,15 @@ from models.policy import Policy, PolicyStatus
 from models.policy_transaction import PolicyTransaction, TransactionType
 from models.quote import Quote, QuoteStatus
 from models.user import User, UserRole
-from schemas.policy import PolicyResponse, PolicySummaryResponse, PolicyListResponse, EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse
+from schemas.policy import (
+    PolicyResponse, PolicySummaryResponse, PolicyListResponse,
+    EndorseRequest, DocumentSummaryResponse, CancelRequest, ReinstateRequest, TransactionResponse,
+)
 from services.commission import calculate_commission, get_effective_premium
-from services.document import generate_policy_schedule, generate_endorsement_certificate, generate_cancellation_notice, generate_reinstatement_notice, generate_finance_agreement
+from services.document import (
+    generate_policy_schedule, generate_endorsement_certificate,
+    generate_cancellation_notice, generate_reinstatement_notice, generate_finance_agreement,
+)
 from services.policy_state_machine import validate_and_transition
 
 router = APIRouter(tags=["policies"])
@@ -58,7 +64,7 @@ def bind_quote(
     expiry_date = _add_months(inception_date, quote.term_months)
 
     vehicle = quote.vehicle
-    current_data = {
+    policy_data = {
         "customer": {
             "name": quote.customer_name,
             "dob": quote.customer_dob,
@@ -71,23 +77,19 @@ def bind_quote(
             "model": vehicle.model if vehicle else None,
             "year": vehicle.year if vehicle else None,
             "purchase_price": str(vehicle.purchase_price) if vehicle else None,
-            "purchase_date": vehicle.purchase_date if vehicle else None,
+            "purchase_date": str(vehicle.purchase_date) if vehicle else None,
             "finance_type": vehicle.finance_type if vehicle else None,
         },
-        "product": quote.product.value,
         "product_fields": quote.product_fields,
-        "premium": str(quote.calculated_premium),
-        "term_months": quote.term_months,
     }
 
     if quote.dealer:
-        current_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
+        policy_data["dealer"] = {"id": quote.dealer.id, "name": quote.dealer.name}
 
-    current_data["payment_type"] = quote.payment_type.value
     if quote.finance_breakdown:
-        current_data["finance_breakdown"] = quote.finance_breakdown
-        current_data["finance_deposit"] = str(quote.finance_deposit)
-        current_data["finance_term_months"] = quote.finance_term_months
+        policy_data["finance_breakdown"] = quote.finance_breakdown
+        policy_data["finance_deposit"] = str(quote.finance_deposit)
+        policy_data["finance_term_months"] = quote.finance_term_months
 
     commission = calculate_commission(
         premium=Decimal(str(quote.calculated_premium)),
@@ -101,16 +103,20 @@ def bind_quote(
     policy = Policy(
         quote_id=quote.id,
         tenant_id=quote.tenant_id,
+        dealer_id=quote.dealer_id,
         product=quote.product,
         status=PolicyStatus.BOUND,
         policy_number=policy_number,
         inception_date=inception_date,
         expiry_date=expiry_date,
+        term_months=quote.term_months,
+        payment_type=quote.payment_type,
         premium=quote.calculated_premium,
         dealer_fee=commission.dealer_fee,
         broker_commission=commission.broker_commission,
-        current_data=current_data,
-        dealer_id=quote.dealer_id,
+        dealer_fee_rate=commission.dealer_fee_rate,
+        broker_commission_rate=commission.broker_commission_rate,
+        policy_data=policy_data,
     )
     db.add(policy)
     db.flush()
@@ -121,16 +127,12 @@ def bind_quote(
         policy_id=policy.id,
         transaction_type=TransactionType.BIND,
         created_by=current_user.id,
-        data_before=None,
-        data_after=current_data,
         premium_delta=Decimal(str(quote.calculated_premium)),
-        commission_data={
-            "gross_premium": str(commission.gross_premium),
-            "dealer_fee": str(commission.dealer_fee),
-            "broker_commission": str(commission.broker_commission),
-            "net_premium_to_insurer": str(commission.net_premium_to_insurer),
-            "total_payable": str(commission.total_payable),
-        },
+        dealer_fee_delta=commission.dealer_fee,
+        broker_commission_delta=commission.broker_commission,
+        dealer_fee_rate=commission.dealer_fee_rate,
+        broker_commission_rate=commission.broker_commission_rate,
+        snapshot=policy_data,
     )
     db.add(transaction)
     db.commit()
@@ -156,14 +158,18 @@ def issue_policy(
         policy_id=policy.id,
         transaction_type=TransactionType.ISSUE,
         created_by=current_user.id,
-        data_before=None,
-        data_after=policy.current_data,
-        premium_delta=None,
+        snapshot=policy.policy_data,
     )
     db.add(transaction)
 
     effective_premium = get_effective_premium(policy, db)
-    pdf_bytes = generate_policy_schedule(policy, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url, effective_premium=effective_premium)
+    pdf_bytes = generate_policy_schedule(
+        policy,
+        tenant_name=policy.tenant.name,
+        primary_colour=policy.tenant.primary_colour,
+        logo_url=policy.tenant.logo_url,
+        effective_premium=effective_premium,
+    )
     db.add(PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.POLICY_SCHEDULE,
@@ -171,10 +177,10 @@ def issue_policy(
         content=pdf_bytes,
     ))
 
-    if policy.current_data.get("payment_type") == "FINANCE":
-        fb = policy.current_data.get("finance_breakdown", {})
-        customer = policy.current_data.get("customer", {})
-        vehicle = policy.current_data.get("vehicle", {})
+    if policy.payment_type.value == "FINANCE":
+        fb = policy.policy_data.get("finance_breakdown", {})
+        customer = policy.policy_data.get("customer", {})
+        vehicle = policy.policy_data.get("vehicle", {})
         addr = customer.get("address") or {}
         address_str = ", ".join(p for p in [addr.get("line1", ""), addr.get("city", ""), addr.get("postcode", "")] if p)
         fa_bytes = generate_finance_agreement(
@@ -184,12 +190,12 @@ def issue_policy(
             vehicle_registration=vehicle.get("registration") or "-",
             finance_company_name=policy.tenant.finance_company or "AutoFinance Ltd",
             financed_amount=float(fb.get("financed_amount", 0)),
-            deposit=float(policy.current_data.get("finance_deposit", 0)),
+            deposit=float(policy.policy_data.get("finance_deposit", 0)),
             monthly_payment=float(fb.get("monthly_payment", 0)),
             finance_charge=float(fb.get("finance_charge", 0)),
             total_repayable=float(fb.get("total_repayable", 0)),
             apr=float(fb.get("apr", 0)),
-            term_months=int(policy.current_data.get("finance_term_months", 12)),
+            term_months=int(policy.policy_data.get("finance_term_months", 12)),
         )
         db.add(PolicyDocument(
             policy_id=policy.id,
@@ -200,7 +206,6 @@ def issue_policy(
 
     db.commit()
     db.refresh(policy)
-
     return policy
 
 
@@ -238,18 +243,20 @@ def list_policy_transactions(
             return f"Reinstatement — premium due £{delta:.2f}" if delta else "Reinstatement"
         return tx_type.title()
 
-    result = []
-    for tx in transactions:
-        result.append(TransactionResponse(
+    return [
+        TransactionResponse(
             id=tx.id,
             transaction_type=tx.transaction_type.value,
             created_at=tx.created_at,
             created_by=tx.created_by,
             premium_delta=tx.premium_delta,
+            dealer_fee_delta=tx.dealer_fee_delta,
+            broker_commission_delta=tx.broker_commission_delta,
             reason_text=tx.reason_text,
             description=describe(tx),
-        ))
-    return result
+        )
+        for tx in transactions
+    ]
 
 
 @router.get("/policies/{policy_id}/documents", response_model=list[DocumentSummaryResponse])
@@ -296,7 +303,7 @@ def download_latest_document(
     policy_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(*_POLICY_ROLES)),
-    document_type: Optional[str] = Query(default="POLICY_SCHEDULE", description="POLICY_SCHEDULE | ENDORSEMENT_CERTIFICATE | CANCELLATION_NOTICE"),
+    document_type: Optional[str] = Query(default="POLICY_SCHEDULE"),
 ):
     policy = db.query(Policy).filter(Policy.id == policy_id).first()
     if not policy:
@@ -311,10 +318,7 @@ def download_latest_document(
 
     document = (
         db.query(PolicyDocument)
-        .filter(
-            PolicyDocument.policy_id == policy_id,
-            PolicyDocument.document_type == doc_type,
-        )
+        .filter(PolicyDocument.policy_id == policy_id, PolicyDocument.document_type == doc_type)
         .order_by(PolicyDocument.created_at.desc())
         .first()
     )
@@ -397,8 +401,8 @@ def endorse_policy(
         raise HTTPException(status_code=403, detail="Access denied")
     validate_and_transition(policy, "endorse")
 
-    data_before = dict(policy.current_data)
-    updated_data = dict(policy.current_data)
+    before_snapshot = dict(policy.policy_data)
+    updated_data = dict(policy.policy_data)
     customer = dict(updated_data.get("customer", {}))
 
     if "customer_name" in payload.changed_fields:
@@ -409,46 +413,53 @@ def endorse_policy(
         customer["address"] = payload.changed_fields["customer_address"]
 
     updated_data["customer"] = customer
-    policy.current_data = updated_data
+    policy.policy_data = updated_data
 
-    # Calculate commission deltas if premium is changing
-    commission_data = None
+    dealer_fee_delta = None
+    broker_commission_delta = None
+
     if payload.premium_delta != 0:
         old_premium = get_effective_premium(policy, db)
         new_premium = old_premium + payload.premium_delta
         old_commission = calculate_commission(old_premium, policy.product, policy.dealer, policy.tenant, db)
         new_commission = calculate_commission(new_premium, policy.product, policy.dealer, policy.tenant, db)
-        commission_data = {
-            "premium_delta": str(payload.premium_delta),
-            "dealer_fee_delta": str(new_commission.dealer_fee - old_commission.dealer_fee),
-            "broker_commission_delta": str(new_commission.broker_commission - old_commission.broker_commission),
-            "net_premium_delta": str(new_commission.net_premium_to_insurer - old_commission.net_premium_to_insurer),
-        }
+        dealer_fee_delta = new_commission.dealer_fee - old_commission.dealer_fee
+        broker_commission_delta = new_commission.broker_commission - old_commission.broker_commission
+        # Update policy row to current values
+        policy.premium = new_premium
+        policy.dealer_fee = new_commission.dealer_fee
+        policy.broker_commission = new_commission.broker_commission
 
     transaction = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.ENDORSEMENT,
         created_by=current_user.id,
-        data_before=data_before,
-        data_after=updated_data,
         premium_delta=payload.premium_delta,
+        dealer_fee_delta=dealer_fee_delta,
+        broker_commission_delta=broker_commission_delta,
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
         reason_text=payload.reason,
-        commission_data=commission_data,
+        snapshot=updated_data,
     )
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_endorsement_certificate(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
-    document = PolicyDocument(
+    pdf_bytes = generate_endorsement_certificate(
+        policy, transaction,
+        tenant_name=policy.tenant.name,
+        primary_colour=policy.tenant.primary_colour,
+        logo_url=policy.tenant.logo_url,
+        before_snapshot=before_snapshot,
+    )
+    db.add(PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.ENDORSEMENT_CERTIFICATE,
         filename=f"{policy.policy_number}_endorsement_{transaction.id}.pdf",
         content=pdf_bytes,
-    )
-    db.add(document)
+    ))
     db.commit()
     db.refresh(policy)
-
     return policy
 
 
@@ -480,7 +491,7 @@ def cancel_policy(
         .first()
     )
     if last_reinstatement:
-        reinstatement_date = date.fromisoformat(last_reinstatement.data_after["reinstatement_date"])
+        reinstatement_date = date.fromisoformat(last_reinstatement.snapshot["reinstatement_date"])
         if cancellation_date < reinstatement_date:
             raise HTTPException(
                 status_code=422,
@@ -492,31 +503,44 @@ def cancel_policy(
     effective_premium = get_effective_premium(policy, db)
     refund = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    # Pro-rata commission clawbacks
+    old_commission = calculate_commission(effective_premium, policy.product, policy.dealer, policy.tenant, db)
+    clawback_ratio = Decimal(days_remaining) / Decimal(total_days)
+    dealer_fee_delta = -(old_commission.dealer_fee * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = -(old_commission.broker_commission * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     policy.status = new_status
+    snapshot = {**policy.policy_data, "cancellation_date": str(cancellation_date)}
 
     transaction = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.CANCELLATION,
         created_by=current_user.id,
-        data_before=policy.current_data,
-        data_after={**policy.current_data, "cancellation_date": str(cancellation_date)},
         premium_delta=-refund,
+        dealer_fee_delta=dealer_fee_delta,
+        broker_commission_delta=broker_commission_delta,
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
         reason_text=payload.reason,
+        snapshot=snapshot,
     )
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_cancellation_notice(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
-    document = PolicyDocument(
+    pdf_bytes = generate_cancellation_notice(
+        policy, transaction,
+        tenant_name=policy.tenant.name,
+        primary_colour=policy.tenant.primary_colour,
+        logo_url=policy.tenant.logo_url,
+    )
+    db.add(PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.CANCELLATION_NOTICE,
         filename=f"{policy.policy_number}_cancellation.pdf",
         content=pdf_bytes,
-    )
-    db.add(document)
+    ))
     db.commit()
     db.refresh(policy)
-
     return policy
 
 
@@ -543,7 +567,7 @@ def reinstate_policy(
         .order_by(PolicyTransaction.created_at.desc())
         .first()
     )
-    cancellation_date = date.fromisoformat(cancellation_tx.data_after["cancellation_date"])
+    cancellation_date = date.fromisoformat(cancellation_tx.snapshot["cancellation_date"])
     reinstatement_date = payload.reinstatement_date or date.today()
 
     if reinstatement_date < cancellation_date:
@@ -559,31 +583,44 @@ def reinstate_policy(
     effective_premium = get_effective_premium(policy, db)
     reinstatement_premium = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    # Pro-rata commission re-charges
+    old_commission = calculate_commission(effective_premium, policy.product, policy.dealer, policy.tenant, db)
+    recharge_ratio = Decimal(days_remaining) / Decimal(total_days)
+    dealer_fee_delta = (old_commission.dealer_fee * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = (old_commission.broker_commission * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     policy.status = new_status
     policy.expiry_date = new_expiry
+    snapshot = {**policy.policy_data, "expiry_date": str(new_expiry), "reinstatement_date": str(reinstatement_date)}
 
     transaction = PolicyTransaction(
         policy_id=policy.id,
         transaction_type=TransactionType.REINSTATEMENT,
         created_by=current_user.id,
-        data_before={**policy.current_data, "expiry_date": str(cancellation_tx.data_after.get("cancellation_date"))},
-        data_after={**policy.current_data, "expiry_date": str(new_expiry), "reinstatement_date": str(reinstatement_date)},
         premium_delta=reinstatement_premium,
+        dealer_fee_delta=dealer_fee_delta,
+        broker_commission_delta=broker_commission_delta,
+        dealer_fee_rate=policy.dealer_fee_rate,
+        broker_commission_rate=policy.broker_commission_rate,
+        snapshot=snapshot,
     )
     db.add(transaction)
     db.flush()
 
-    pdf_bytes = generate_reinstatement_notice(policy, transaction, tenant_name=policy.tenant.name, primary_colour=policy.tenant.primary_colour, logo_url=policy.tenant.logo_url)
-    document = PolicyDocument(
+    pdf_bytes = generate_reinstatement_notice(
+        policy, transaction,
+        tenant_name=policy.tenant.name,
+        primary_colour=policy.tenant.primary_colour,
+        logo_url=policy.tenant.logo_url,
+    )
+    db.add(PolicyDocument(
         policy_id=policy.id,
         document_type=DocumentType.REINSTATEMENT_NOTICE,
         filename=f"{policy.policy_number}_reinstatement.pdf",
         content=pdf_bytes,
-    )
-    db.add(document)
+    ))
     db.commit()
     db.refresh(policy)
-
     return policy
 
 

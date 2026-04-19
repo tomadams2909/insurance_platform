@@ -82,7 +82,7 @@ def test_bind_returns_201_with_bound_status(client, test_user, quoted_quote):
     assert data["status"] == "BOUND"
     assert data["policy_number"].startswith(f"POL-{date.today().year}-")
     assert data["inception_date"] == str(date.today())
-    assert "current_data" in data
+    assert "policy_data" in data
 
 
 def test_bind_wrong_tenant_returns_403(client, db, test_user, quoted_quote):
@@ -131,7 +131,7 @@ def test_endorse_updates_customer_name(client, test_user, issued_policy):
         headers=auth_headers(client),
     )
     assert response.status_code == 200
-    assert response.json()["current_data"]["customer"]["name"] == "Jane Updated"
+    assert response.json()["policy_data"]["customer"]["name"] == "Jane Updated"
 
 
 def test_endorse_locked_field_returns_422(client, test_user, issued_policy):
@@ -338,7 +338,7 @@ def test_full_policy_lifecycle(client, test_user, quoted_quote):
         json={"changed_fields": {"customer_name": "Jane Updated"}, "reason": "Correction"},
         headers=auth_headers(client),
     ).json()
-    assert policy["current_data"]["customer"]["name"] == "Jane Updated"
+    assert policy["policy_data"]["customer"]["name"] == "Jane Updated"
 
     # Cancel
     cancellation_date = str(date.today() + timedelta(days=30))
@@ -375,7 +375,7 @@ def test_get_policy_detail_returns_policy_data(client, test_user, issued_policy)
     assert data["id"] == issued_policy["id"]
     assert data["status"] == "ISSUED"
     assert data["policy_number"].startswith(f"POL-{date.today().year}-")
-    assert data["current_data"]["customer"]["name"] == "Jane Smith"
+    assert data["policy_data"]["customer"]["name"] == "Jane Smith"
 
 
 # ── Endorsement premium delta ─────────────────────────────────────────────────
