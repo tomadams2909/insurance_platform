@@ -1,5 +1,5 @@
 import io
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
@@ -38,12 +38,12 @@ HEADERS = [
 
 MONEY_COLS = {9, 10, 11, 12, 13, 14}  # 1-based column indices for currency format
 
-_HEADER_FILL = PatternFill("solid", fgColor="1E4078")
 _ALT_FILL = PatternFill("solid", fgColor="EEF2F7")
 _CURRENCY_FMT = '£#,##0.00'
 
 
-def _build_bdx(rows: list[dict]) -> bytes:
+def _build_bdx(rows: list[dict], primary_colour: str = "1E4078") -> bytes:
+    header_fill = PatternFill("solid", fgColor=primary_colour.lstrip("#"))
     wb = Workbook()
     ws = wb.active
     ws.title = "BDX"
@@ -52,7 +52,7 @@ def _build_bdx(rows: list[dict]) -> bytes:
     for col_idx, header in enumerate(HEADERS, start=1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = _HEADER_FILL
+        cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
     # Data rows
@@ -94,7 +94,7 @@ def download_bdx(
         .filter(
             Policy.tenant_id == current_user.tenant_id,
             PolicyTransaction.created_at >= date_from,
-            PolicyTransaction.created_at <= date_to,
+            PolicyTransaction.created_at < date_to + timedelta(days=1),
         )
         .order_by(Policy.policy_number, PolicyTransaction.created_at)
         .all()
@@ -133,7 +133,8 @@ def download_bdx(
             "cumulative_premium": float(cumulative[policy.id]),
         })
 
-    xlsx_bytes = _build_bdx(rows)
+    primary_colour = current_user.tenant.primary_colour or "1E4078"
+    xlsx_bytes = _build_bdx(rows, primary_colour)
 
     filename = f"bdx_{date_from}_{date_to}.xlsx"
     return StreamingResponse(
