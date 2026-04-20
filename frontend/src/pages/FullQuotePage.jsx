@@ -185,7 +185,6 @@ export default function FullQuotePage() {
     try {
       const body = {
         customer_name: form.customer_name,
-        product: form.product,
         term_months: Number(form.term_months),
         vehicle,
         ...(form.customer_dob ? { customer_dob: form.customer_dob } : {}),
@@ -198,7 +197,14 @@ export default function FullQuotePage() {
           finance_term_months: Number(form.finance_term_months),
         } : {}),
       }
-      const { data } = await client.post('/quotes', body)
+
+      let data
+      if (fromQuoteId) {
+        ;({ data } = await client.post(`/quotes/${fromQuoteId}/promote`, body))
+      } else {
+        const fullBody = { ...body, product: form.product }
+        ;({ data } = await client.post('/quotes', fullBody))
+      }
       navigate(`/quotes/${data.id}`)
     } catch (err) {
       const detail = err.response?.data?.detail

@@ -233,6 +233,13 @@ def promote_quote(
         quote.term_months = payload.term_months
     if payload.product_fields:
         quote.product_fields = payload.product_fields
+    if payload.payment_type is not None:
+        quote.payment_type = payload.payment_type
+    if payload.finance_deposit is not None:
+        quote.finance_deposit = payload.finance_deposit
+    if payload.finance_term_months is not None:
+        quote.finance_term_months = payload.finance_term_months
+    quote.finance_breakdown = _resolve_finance(quote, premium)
 
     vehicle = quote.vehicle
     vehicle.purchase_price = payload.vehicle.purchase_price

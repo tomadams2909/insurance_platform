@@ -139,11 +139,25 @@ class PromoteQuoteRequest(BaseModel):
     term_months: Optional[Literal[12, 24, 36, 48, 60]] = None
     vehicle: VehicleFullInput
     product_fields: Optional[dict[str, Any]] = None
+    payment_type: Optional[PaymentType] = None
+    finance_deposit: Optional[Decimal] = Field(default=None, ge=0)
+    finance_term_months: Optional[int] = None
 
     @field_validator("customer_dob")
     @classmethod
     def validate_dob(cls, v):
         return _validate_dob(v)
+
+    @model_validator(mode="after")
+    def validate_finance_fields(self):
+        if self.payment_type == PaymentType.FINANCE:
+            if self.finance_deposit is None:
+                raise ValueError("finance_deposit is required when payment_type is FINANCE")
+            if self.finance_term_months is None:
+                raise ValueError("finance_term_months is required when payment_type is FINANCE")
+            if self.finance_term_months not in _FINANCE_TERMS:
+                raise ValueError("finance_term_months must be 12, 24, or 36")
+        return self
 
 
 class QuickQuoteResponse(BaseModel):
