@@ -11,6 +11,7 @@ import QuoteDetailPage from './pages/QuoteDetailPage'
 import PolicyListPage from './pages/PolicyListPage'
 import PolicyDetailPage from './pages/PolicyDetailPage'
 import DealerManagementPage from './pages/DealerManagementPage'
+import ReportsPage from './pages/ReportsPage'
 
 function ProtectedLayout({ children }) {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/policies" element={<ProtectedLayout><PolicyListPage /></ProtectedLayout>} />
           <Route path="/policies/:id" element={<ProtectedLayout><PolicyDetailPage /></ProtectedLayout>} />
           <Route path="/dealers" element={<ProtectedLayout><DealerManagementPage /></ProtectedLayout>} />
+          <Route path="/reports" element={<ProtectedLayout><ReportsPage /></ProtectedLayout>} />
           <Route path="*" element={<ProtectedLayout><div className="page"><h2>Page not found</h2></div></ProtectedLayout>} />
         </Routes>
       </BrowserRouter>

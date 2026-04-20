@@ -11,6 +11,7 @@ export default function NavBar() {
   }
 
   const isAdmin = user?.role === 'TENANT_ADMIN' || user?.role === 'SUPER_ADMIN'
+  const canViewReports = isAdmin || user?.role === 'UNDERWRITER'
 
   return (
     <nav className="navbar">
@@ -30,7 +31,7 @@ export default function NavBar() {
           <Link to="/quotes" className="navbar-link">Quotes</Link>
           <Link to="/policies" className="navbar-link">Policies</Link>
           {isAdmin && <Link to="/dealers" className="navbar-link">Dealers</Link>}
-          {isAdmin && <Link to="/reports" className="navbar-link">Reports</Link>}
+          {canViewReports && <Link to="/reports" className="navbar-link">Reports</Link>}
         </div>
       </div>
 
