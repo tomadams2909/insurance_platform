@@ -1,8 +1,14 @@
 # Insurance Platform
 
-A multi-tenant motor ancillary insurance platform built to production-grade standards. Covers the full policy lifecycle — quote, bind, issue, endorse, cancel, reinstate — with PDF document generation, a dealer commission engine, financed payment options, and a BDX Excel report. Three independently branded demo tenants showcase the multi-tenancy model end-to-end.
+[![CI](https://github.com/tomadams2909/insurance_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/tomadams2909/insurance_platform/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
 
-Built as a portfolio project demonstrating backend engineering depth: clean data modelling, regulatory compliance patterns, role-based access control, and a complete test suite with CI.
+A multi-tenant motor ancillary insurance platform built to production-grade standards against UK FCA motor ancillary requirements. Covers the full policy lifecycle — quote, bind, issue, endorse, cancel, reinstate — with PDF document generation, a dealer commission engine, financed payment options, and a BDX Excel report. Three independently branded demo tenants showcase the multi-tenancy model end-to-end.
+
+| Insurance Co. Ltd | Car Cover Ltd | Auto Insurance Ltd |
+|---|---|---|
+| <img src="docs/screenshots/dashboard-insuranceco.png" width="260" alt="Insurance Co. dashboard"> | <img src="docs/screenshots/dashboard-carcover.png" width="260" alt="Car Cover dashboard"> | <img src="docs/screenshots/dashboard-autoinsurance.png" width="260" alt="Auto Insurance dashboard"> |
 
 ---
 
@@ -62,7 +68,7 @@ Built as a portfolio project demonstrating backend engineering depth: clean data
 
 ```bash
 # 1. Clone
-git clone <repo-url>
+git clone https://github.com/tomadams2909/insurance_platform.git
 cd insurance_platform
 
 # 2. Start PostgreSQL
@@ -81,7 +87,6 @@ python seed.py
 # 6. Start the backend
 uvicorn main:app --reload
 # API available at http://localhost:8000
-# Interactive docs at http://localhost:8000/docs
 
 # 7. In a second terminal, start the frontend
 cd ../frontend
@@ -89,6 +94,8 @@ npm install
 npm run dev
 # UI available at http://localhost:5173
 ```
+
+> API documentation is auto-generated at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc` (ReDoc). All endpoints are fully typed and documented.
 
 ---
 
@@ -151,10 +158,6 @@ npm run dev
 | **Auto Insurance Ltd** | Burgundy `#6B1E1E` + gold | GAP, VRI, TLP | 2 (Elite Autos, Prestige South) |
 
 Each tenant has its own logo, favicon, and broker commission configuration. The same UI and PDF engine serves all three — branding is resolved at runtime from the authenticated user's tenant.
-
-| Insurance Co. Ltd | Car Cover Ltd | Auto Insurance Ltd |
-|---|---|---|
-| ![Insurance Co. dashboard](docs/screenshots/dashboard-insuranceco.png) | ![Car Cover dashboard](docs/screenshots/dashboard-carcover.png) | ![Auto Insurance dashboard](docs/screenshots/dashboard-autoinsurance.png) |
 
 ### Policy detail and documents
 
