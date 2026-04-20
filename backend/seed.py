@@ -373,12 +373,12 @@ def _reinstate(db, policy, user, cancel_tx, reinstatement_date):
 def seed():
     db = SessionLocal()
     try:
-        # ── AUTOSURE UK ───────────────────────────────────────────────────────
-        autosure = _get_or_create_tenant(db, "autosure",
-            name="Autosure UK",
+        # ── INSURANCE CO. LTD ─────────────────────────────────────────────────
+        autosure = _get_or_create_tenant(db, "insuranceco",
+            name="Insurance Co. Ltd",
             primary_colour="#1E4078",
-            logo_url="/static/logos/autosure.svg",
-            favicon_url="/static/favicons/autosure.svg",
+            logo_url="/static/logos/insuranceco_logo.svg",
+            favicon_url="/static/favicons/insuranceco.svg",
             allowed_products=None,
         )
 
@@ -396,11 +396,11 @@ def seed():
             contact_email="fleet@valleycars.co.uk")
         _add_commission(db, valley_cars.id, "PERCENTAGE", "14.0000")
 
-        admin_au = _get_or_create_user(db, "admin@autosure.com",
-            full_name="Autosure Admin", role=UserRole.TENANT_ADMIN, tenant_id=autosure.id)
-        broker_au = _get_or_create_user(db, "broker@autosure.com",
-            full_name="Autosure Broker", role=UserRole.BROKER, tenant_id=autosure.id)
-        citybroker_au = _get_or_create_user(db, "citybroker@autosure.com",
+        admin_au = _get_or_create_user(db, "admin@insuranceco.com",
+            full_name="Insurance Co. Admin", role=UserRole.TENANT_ADMIN, tenant_id=autosure.id)
+        broker_au = _get_or_create_user(db, "broker@insuranceco.com",
+            full_name="Insurance Co. Broker", role=UserRole.BROKER, tenant_id=autosure.id)
+        citybroker_au = _get_or_create_user(db, "citybroker@insuranceco.com",
             full_name="City Broker", role=UserRole.BROKER,
             tenant_id=autosure.id, dealer_id=city_motors.id)
 
@@ -438,45 +438,45 @@ def seed():
             _reinstate(db, p_rich, admin_au, cancel_tx,
                 reinstatement_date=date(2024, 10, 1))
 
-        # ── DRIVESHIELD ───────────────────────────────────────────────────────
-        driveshield = _get_or_create_tenant(db, "driveshield",
-            name="DriveShield",
+        # ── CAR COVER LTD ─────────────────────────────────────────────────────
+        carcover = _get_or_create_tenant(db, "carcover",
+            name="Car Cover Ltd",
             primary_colour="#0D7C5F",
-            logo_url="/static/logos/driveshield.svg",
-            favicon_url="/static/favicons/driveshield.svg",
+            logo_url="/static/logos/carcover_logo.svg",
+            favicon_url="/static/favicons/carcover.svg",
             allowed_products=["GAP", "TYRE_ESSENTIAL", "TYRE_PLUS", "COSMETIC"],
         )
 
-        shield_london = _get_or_create_dealer(db, driveshield.id, "Shield Direct London",
+        shield_london = _get_or_create_dealer(db, carcover.id, "Shield Direct London",
             contact_email="info@shielddirect.co.uk")
         _add_commission(db, shield_london.id, "PERCENTAGE", "18.0000")
 
-        shield_glasgow = _get_or_create_dealer(db, driveshield.id, "Shield North Glasgow",
+        shield_glasgow = _get_or_create_dealer(db, carcover.id, "Shield North Glasgow",
             contact_email="info@shieldnorth.co.uk")
         _add_commission(db, shield_glasgow.id, "PERCENTAGE", "16.0000")
 
-        admin_ds = _get_or_create_user(db, "admin@driveshield.com",
-            full_name="DriveShield Admin", role=UserRole.TENANT_ADMIN, tenant_id=driveshield.id)
-        broker_ds = _get_or_create_user(db, "broker@driveshield.com",
-            full_name="DriveShield Broker", role=UserRole.BROKER, tenant_id=driveshield.id)
-        shieldbroker_ds = _get_or_create_user(db, "shieldbroker@driveshield.com",
+        admin_ds = _get_or_create_user(db, "admin@carcover.com",
+            full_name="Car Cover Admin", role=UserRole.TENANT_ADMIN, tenant_id=carcover.id)
+        broker_ds = _get_or_create_user(db, "broker@carcover.com",
+            full_name="Car Cover Broker", role=UserRole.BROKER, tenant_id=carcover.id)
+        shieldbroker_ds = _get_or_create_user(db, "shieldbroker@carcover.com",
             full_name="Shield Direct Broker", role=UserRole.BROKER,
-            tenant_id=driveshield.id, dealer_id=shield_london.id)
+            tenant_id=carcover.id, dealer_id=shield_london.id)
 
-        if db.query(Policy).filter(Policy.tenant_id == driveshield.id).count() == 0:
-            _create_quote(db, driveshield, broker_ds, ProductType.GAP, 16000, 12,
+        if db.query(Policy).filter(Policy.tenant_id == carcover.id).count() == 0:
+            _create_quote(db, carcover, broker_ds, ProductType.GAP, 16000, 12,
                 "Frank Obi", "frank@example.com",
                 registration="GA21DSH", make="Nissan", model="Juke", year=2021,
                 finance_type="PCP", product_fields={"loan_amount": 13000})
 
-            q_ds_issued = _create_quote(db, driveshield, shieldbroker_ds, ProductType.TYRE_ESSENTIAL, 19000, 12,
+            q_ds_issued = _create_quote(db, carcover, shieldbroker_ds, ProductType.TYRE_ESSENTIAL, 19000, 12,
                 "Grace Kim", "grace@example.com",
                 registration="TE22DSH", make="Hyundai", model="Tucson", year=2022,
                 dealer=shield_london)
             p_ds_issued = _bind(db, q_ds_issued, shieldbroker_ds, inception_date=date(2025, 1, 10))
             _issue(db, p_ds_issued, shieldbroker_ds)
 
-            q_ds_cancel = _create_quote(db, driveshield, broker_ds, ProductType.COSMETIC, 21000, 12,
+            q_ds_cancel = _create_quote(db, carcover, broker_ds, ProductType.COSMETIC, 21000, 12,
                 "Harry Patel", "harry@example.com",
                 registration="CO23DSH", make="Kia", model="Sportage", year=2023)
             p_ds_cancel = _bind(db, q_ds_cancel, broker_ds, inception_date=date(2024, 10, 1))
@@ -484,34 +484,34 @@ def seed():
             _cancel(db, p_ds_cancel, admin_ds,
                 cancellation_date=date(2025, 1, 5), reason="Vehicle sold")
 
-        # ── PREMIUMCOVER ──────────────────────────────────────────────────────
-        premiumcover = _get_or_create_tenant(db, "premiumcover",
-            name="PremiumCover",
+        # ── AUTO INSURANCE LTD ────────────────────────────────────────────────
+        autoinsurance = _get_or_create_tenant(db, "autoinsurance",
+            name="Auto Insurance Ltd",
             primary_colour="#6B1E1E",
-            logo_url="/static/logos/premiumcover.svg",
-            favicon_url="/static/favicons/premiumcover.svg",
+            logo_url="/static/logos/autoinsurance_logo.svg",
+            favicon_url="/static/favicons/autoinsurance.svg",
             allowed_products=["GAP", "VRI", "TLP"],
         )
 
-        elite_mayfair = _get_or_create_dealer(db, premiumcover.id, "Elite Autos Mayfair",
+        elite_mayfair = _get_or_create_dealer(db, autoinsurance.id, "Elite Autos Mayfair",
             contact_email="info@eliteautos.co.uk")
         _add_commission(db, elite_mayfair.id, "PERCENTAGE", "20.0000")
 
-        prestige_surrey = _get_or_create_dealer(db, premiumcover.id, "Prestige South Surrey",
+        prestige_surrey = _get_or_create_dealer(db, autoinsurance.id, "Prestige South Surrey",
             contact_email="info@prestigesurrey.co.uk")
         _add_commission(db, prestige_surrey.id, "PERCENTAGE", "18.0000")
 
-        _get_or_create_user(db, "admin@premiumcover.com",
-            full_name="PremiumCover Admin", role=UserRole.TENANT_ADMIN, tenant_id=premiumcover.id)
-        broker_pc = _get_or_create_user(db, "broker@premiumcover.com",
-            full_name="PremiumCover Broker", role=UserRole.BROKER, tenant_id=premiumcover.id)
+        _get_or_create_user(db, "admin@autoinsurance.com",
+            full_name="Auto Insurance Admin", role=UserRole.TENANT_ADMIN, tenant_id=autoinsurance.id)
+        broker_pc = _get_or_create_user(db, "broker@autoinsurance.com",
+            full_name="Auto Insurance Broker", role=UserRole.BROKER, tenant_id=autoinsurance.id)
 
-        if db.query(Policy).filter(Policy.tenant_id == premiumcover.id).count() == 0:
-            _create_quote(db, premiumcover, broker_pc, ProductType.VRI, 65000, 24,
+        if db.query(Policy).filter(Policy.tenant_id == autoinsurance.id).count() == 0:
+            _create_quote(db, autoinsurance, broker_pc, ProductType.VRI, 65000, 24,
                 "Isabella Zhao", "isabella@example.com",
                 registration="VR23PCO", make="Audi", model="Q7", year=2023)
 
-            q_pc_issued = _create_quote(db, premiumcover, broker_pc, ProductType.GAP, 55000, 24,
+            q_pc_issued = _create_quote(db, autoinsurance, broker_pc, ProductType.GAP, 55000, 24,
                 "James Harrow", "james@example.com",
                 registration="GA22PCO", make="Porsche", model="Cayenne", year=2022,
                 finance_type="PCP", product_fields={"loan_amount": 48000},
@@ -520,7 +520,7 @@ def seed():
             _issue(db, p_pc_issued, broker_pc)
 
         db.commit()
-        print("Seeded: Autosure UK, DriveShield, PremiumCover")
+        print("Seeded: Insurance Co. Ltd, Car Cover Ltd, Auto Insurance Ltd")
 
     except Exception:
         db.rollback()

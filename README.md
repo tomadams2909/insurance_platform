@@ -146,13 +146,25 @@ npm run dev
 
 | Tenant | Branding | Available products | Dealers |
 |---|---|---|---|
-| **Autosure UK** | Navy `#1E4078` + gold | All 6 products | 3 (City Motors, Prestige Auto, Valley Cars) |
-| **DriveShield** | Emerald `#0D7C5F` + mint | GAP, Tyre Essential, Tyre Plus, Cosmetic | 2 (Shield Direct, Shield North) |
-| **PremiumCover** | Burgundy `#6B1E1E` + antique gold | GAP, VRI, TLP | 2 (Elite Autos, Prestige South) |
+| **Insurance Co. Ltd** | Navy `#1E4078` + gold | All 6 products | 3 (City Motors, Prestige Auto, Valley Cars) |
+| **Car Cover Ltd** | Emerald `#0D7C5F` + mint | GAP, Tyre Essential, Tyre Plus, Cosmetic | 2 (Shield Direct, Shield North) |
+| **Auto Insurance Ltd** | Burgundy `#6B1E1E` + gold | GAP, VRI, TLP | 2 (Elite Autos, Prestige South) |
 
 Each tenant has its own logo, favicon, and broker commission configuration. The same UI and PDF engine serves all three — branding is resolved at runtime from the authenticated user's tenant.
 
-> Add screenshots here: log in as each tenant admin and capture the dashboard, a policy schedule PDF, and the dealer management page to demonstrate live branding across all three tenants.
+| Insurance Co. Ltd | Car Cover Ltd | Auto Insurance Ltd |
+|---|---|---|
+| ![Insurance Co. dashboard](docs/screenshots/dashboard-insuranceco.png) | ![Car Cover dashboard](docs/screenshots/dashboard-carcover.png) | ![Auto Insurance dashboard](docs/screenshots/dashboard-autoinsurance.png) |
+
+### Policy detail and documents
+
+![Policy detail](docs/screenshots/policy-detail.png)
+
+![Policy schedule PDF](docs/screenshots/policy-schedule.png)
+
+### Dealer management
+
+![Dealer management](docs/screenshots/dealer-management.png)
 
 ---
 
@@ -182,14 +194,14 @@ All passwords: `Demo1234!`
 
 | Tenant | Email | Role | Dealer |
 |---|---|---|---|
-| Autosure UK | admin@autosure.com | TENANT_ADMIN | — |
-| Autosure UK | broker@autosure.com | BROKER | — |
-| Autosure UK | citybroker@autosure.com | BROKER | City Motors Manchester |
-| DriveShield | admin@driveshield.com | TENANT_ADMIN | — |
-| DriveShield | broker@driveshield.com | BROKER | — |
-| DriveShield | shieldbroker@driveshield.com | BROKER | Shield Direct London |
-| PremiumCover | admin@premiumcover.com | TENANT_ADMIN | — |
-| PremiumCover | broker@premiumcover.com | BROKER | — |
+| Insurance Co. Ltd | admin@insuranceco.com | TENANT_ADMIN | — |
+| Insurance Co. Ltd | broker@insuranceco.com | BROKER | — |
+| Insurance Co. Ltd | citybroker@insuranceco.com | BROKER | City Motors Manchester |
+| Car Cover Ltd | admin@carcover.com | TENANT_ADMIN | — |
+| Car Cover Ltd | broker@carcover.com | BROKER | — |
+| Car Cover Ltd | shieldbroker@carcover.com | BROKER | Shield Direct London |
+| Auto Insurance Ltd | admin@autoinsurance.com | TENANT_ADMIN | — |
+| Auto Insurance Ltd | broker@autoinsurance.com | BROKER | — |
 
 ---
 

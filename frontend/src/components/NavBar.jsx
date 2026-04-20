@@ -17,13 +17,15 @@ export default function NavBar() {
     <nav className="navbar">
       <div className="navbar-left">
         {tenantConfig?.logo_url ? (
-          <img
-            src={`${import.meta.env.VITE_API_URL}${tenantConfig.logo_url}`}
-            alt={tenantConfig.name}
-            className="navbar-logo"
-          />
+          <Link to="/dashboard">
+            <img
+              src={`${import.meta.env.VITE_API_URL}${tenantConfig.logo_url}`}
+              alt={tenantConfig.name}
+              className="navbar-logo"
+            />
+          </Link>
         ) : (
-          <span className="navbar-brand-name">{tenantConfig?.name || 'Insurance Platform'}</span>
+          <Link to="/dashboard" className="navbar-brand-name">{tenantConfig?.name || 'Insurance Platform'}</Link>
         )}
 
         <div className="navbar-links">
@@ -61,7 +63,7 @@ export default function NavBar() {
           gap: 2rem;
         }
         .navbar-logo {
-          height: 32px;
+          height: 56px;
           width: auto;
         }
         .navbar-brand-name {

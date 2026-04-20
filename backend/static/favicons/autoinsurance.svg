@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#6B1E1E" rx="5"/>
+  <polygon points="16,4 27,10 27,22 16,28 5,22 5,10"
+           fill="none" stroke="#D4AF37" stroke-width="1.5"/>
+  <text x="15.5" y="19" font-family="Georgia,Times New Roman,serif" font-weight="bold"
+        font-size="9" fill="#D4AF37" text-anchor="middle">AI</text>
+</svg>

@@ -52,7 +52,7 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
     logo_path = _resolve_logo_path(logo_url)
     if logo_path:
         try:
-            pdf.image(logo_path, x=172, y=3, w=24, h=22)
+            pdf.image(logo_path, x=148, y=4, w=0, h=20)
         except Exception:
             logo_path = None
     if not logo_path:
