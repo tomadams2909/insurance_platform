@@ -97,6 +97,8 @@ npm run dev
 
 > API documentation is auto-generated at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc` (ReDoc). All endpoints are fully typed and documented.
 
+![Swagger UI](docs/screenshots/swagger-ui.png)
+
 ---
 
 ## Features
