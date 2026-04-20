@@ -4,6 +4,8 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
 
+**Live demo:** [insuranceplatform-production.up.railway.app](https://insuranceplatform-production.up.railway.app) — log in with `broker@insuranceco.com` / `Demo1234!`
+
 A multi-tenant motor ancillary insurance platform built to production-grade standards against UK FCA motor ancillary requirements. Covers the full policy lifecycle — quote, bind, issue, endorse, cancel, reinstate — with PDF document generation, a dealer commission engine, financed payment options, and a BDX Excel report. Three independently branded demo tenants showcase the multi-tenancy model end-to-end.
 
 | Insurance Co. Ltd | Car Cover Ltd | Auto Insurance Ltd |
