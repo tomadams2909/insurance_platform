@@ -2,7 +2,6 @@ from datetime import datetime
 
 import pytest
 
-from models.quote import Quote, QuoteStatus
 from models.tenant import Tenant
 from models.user import User, UserRole
 from auth.security import get_password_hash
@@ -76,7 +75,8 @@ def test_quick_quote_rejects_invalid_term(client, test_user):
 def test_quick_quote_rejects_price_over_limit(client, test_user):
     response = client.post(
         "/quotes/quick",
-        json={"customer_name": "Jane Smith", "product": "GAP", "term_months": 12, "vehicle": {"purchase_price": 200001}},
+        json={"customer_name": "Jane Smith", "product": "GAP", "term_months": 12,
+              "vehicle": {"purchase_price": 200001}},
         headers=auth_headers(client),
     )
     assert response.status_code == 422
@@ -269,8 +269,12 @@ def test_list_quotes_pagination(client, test_user):
 
 def test_list_quotes_filter_by_product(client, test_user):
     headers = auth_headers(client)
-    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
-    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "VRI", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
+    client.post("/quotes/quick",
+                json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK},
+                headers=headers)
+    client.post("/quotes/quick",
+                json={"customer_name": "Jane", "product": "VRI", "term_months": 12, "vehicle": VEHICLE_QUICK},
+                headers=headers)
 
     response = client.get("/quotes?product=GAP", headers=headers)
     assert response.status_code == 200
@@ -279,7 +283,9 @@ def test_list_quotes_filter_by_product(client, test_user):
 
 def test_list_quotes_filter_by_status(client, test_user):
     headers = auth_headers(client)
-    client.post("/quotes/quick", json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK}, headers=headers)
+    client.post("/quotes/quick",
+                json={"customer_name": "Jane", "product": "GAP", "term_months": 12, "vehicle": VEHICLE_QUICK},
+                headers=headers)
 
     response = client.get("/quotes?status=QUICK_QUOTE", headers=headers)
     assert response.status_code == 200

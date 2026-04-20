@@ -9,6 +9,7 @@ def get_vehicle_category(vehicle_value: Decimal) -> int:
         return 2
     return 3
 
+
 CATEGORY_MULTIPLIERS = {1: Decimal("1.0"), 2: Decimal("1.25"), 3: Decimal("1.55")}
 
 # Annual base rates

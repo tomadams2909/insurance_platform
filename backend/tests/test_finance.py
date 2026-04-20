@@ -1,18 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
 
-import pytest
-from fastapi.testclient import TestClient
-
-from main import app
-from models.tenant import Tenant
-from models.user import User, UserRole
-from auth.security import get_password_hash
 from services.finance import calculate_finance, REPRESENTATIVE_APR, FinanceBreakdown
 
 CURRENT_YEAR = datetime.now().year
 
 # ── Finance service unit tests ────────────────────────────────────────────────
+
 
 def test_basic_finance_breakdown():
     result = calculate_finance(

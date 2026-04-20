@@ -121,7 +121,9 @@ class TestProductOverride:
 
     def test_default_rate_used_for_other_products(self, db, test_tenant, dealer_with_product_override):
         # COSMETIC has no override — should use 10% default
-        result = calculate_commission(Decimal("1000"), ProductType.COSMETIC, dealer_with_product_override, test_tenant, db)
+        result = calculate_commission(
+            Decimal("1000"), ProductType.COSMETIC, dealer_with_product_override, test_tenant, db
+        )
         assert result.dealer_fee == Decimal("100.00")
 
 

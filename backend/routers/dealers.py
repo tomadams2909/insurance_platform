@@ -6,7 +6,9 @@ from database import get_db
 from models.dealer import Dealer
 from models.dealer_commission import DealerCommission
 from models.user import User, UserRole
-from schemas.dealer import DealerCreateRequest, DealerUpdateRequest, DealerResponse, CommissionCreateRequest, CommissionResponse
+from schemas.dealer import (
+    DealerCreateRequest, DealerUpdateRequest, DealerResponse, CommissionCreateRequest, CommissionResponse,
+)
 
 router = APIRouter(prefix="/dealers", tags=["dealers"])
 

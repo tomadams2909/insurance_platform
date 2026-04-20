@@ -107,7 +107,9 @@ def _make_pdf(subtitle: str, policy_number: str, tenant_name: str,
     return pdf, section_heading, row, footer
 
 
-def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = None, logo_url: str = None, effective_premium=None) -> bytes:
+def generate_policy_schedule(
+    policy, tenant_name: str, primary_colour: str = None, logo_url: str = None, effective_premium=None
+) -> bytes:
     data = policy.policy_data
     customer = data.get("customer", {})
     vehicle = data.get("vehicle", {})
@@ -124,7 +126,9 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
 
     display_premium = effective_premium if effective_premium is not None else policy.premium
 
-    pdf, section_heading, row, footer = _make_pdf("Policy Schedule", policy.policy_number, tenant_name, primary_colour, logo_url)
+    pdf, section_heading, row, footer = _make_pdf(
+        "Policy Schedule", policy.policy_number, tenant_name, primary_colour, logo_url
+    )
 
     section_heading("Cover Details")
     row("Product:", policy.product.value)
@@ -192,12 +196,16 @@ def generate_policy_schedule(policy, tenant_name: str, primary_colour: str = Non
     return bytes(pdf.output())
 
 
-def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
+def generate_cancellation_notice(
+    policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None
+) -> bytes:
     data = transaction.snapshot or {}
     cancellation_date = data.get("cancellation_date", str(date.today()))
     refund_amount = abs(float(transaction.premium_delta or 0))
 
-    pdf, section_heading, row, footer = _make_pdf("Cancellation Notice", policy.policy_number, tenant_name, primary_colour, logo_url)
+    pdf, section_heading, row, footer = _make_pdf(
+        "Cancellation Notice", policy.policy_number, tenant_name, primary_colour, logo_url
+    )
 
     section_heading("Cancellation Details")
     row("Effective Date:", cancellation_date)
@@ -231,13 +239,17 @@ def generate_cancellation_notice(policy, transaction, tenant_name: str, primary_
     return bytes(pdf.output())
 
 
-def generate_reinstatement_notice(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None) -> bytes:
+def generate_reinstatement_notice(
+    policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None
+) -> bytes:
     data = transaction.snapshot or {}
     new_expiry = data.get("expiry_date", str(policy.expiry_date))
     reinstatement_date = data.get("reinstatement_date", str(date.today()))
     amount_due = float(transaction.premium_delta or 0)
 
-    pdf, section_heading, row, footer = _make_pdf("Reinstatement Notice", policy.policy_number, tenant_name, primary_colour, logo_url)
+    pdf, section_heading, row, footer = _make_pdf(
+        "Reinstatement Notice", policy.policy_number, tenant_name, primary_colour, logo_url
+    )
 
     section_heading("Reinstatement Details")
     row("Reinstatement Date:", reinstatement_date)
@@ -389,14 +401,18 @@ def generate_finance_agreement(
     pdf.set_x(20)
     pdf.cell(
         0, 4,
-        f"Generated: {date.today()}    |    {finance_company_name} is authorised and regulated by the Financial Conduct Authority.",
+        f"Generated: {date.today()}    |    "
+        f"{finance_company_name} is authorised and regulated by the Financial Conduct Authority.",
         new_x=XPos.LMARGIN, new_y=YPos.NEXT,
     )
 
     return bytes(pdf.output())
 
 
-def generate_endorsement_certificate(policy, transaction, tenant_name: str, primary_colour: str = None, logo_url: str = None, before_snapshot: dict = None) -> bytes:
+def generate_endorsement_certificate(
+    policy, transaction, tenant_name: str, primary_colour: str = None,
+    logo_url: str = None, before_snapshot: dict = None
+) -> bytes:
     data_before = before_snapshot or {}
     data_after = transaction.snapshot or {}
 
@@ -415,7 +431,9 @@ def generate_endorsement_certificate(policy, transaction, tenant_name: str, prim
         if before_val != after_val:
             changes.append((label, str(before_val or "-"), str(after_val or "-")))
 
-    pdf, section_heading, row, footer = _make_pdf("Endorsement Certificate", policy.policy_number, tenant_name, primary_colour, logo_url)
+    pdf, section_heading, row, footer = _make_pdf(
+        "Endorsement Certificate", policy.policy_number, tenant_name, primary_colour, logo_url
+    )
 
     section_heading("Endorsement Details")
     row("Effective Date:", str(date.today()))

@@ -11,7 +11,10 @@ from models.quote import Quote, QuoteStatus, ProductType, PaymentType
 from models.tenant import Tenant
 from models.vehicle import Vehicle
 from models.user import User, UserRole
-from schemas.quote import QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse, PromoteQuoteRequest, QuoteSummaryResponse, QuoteListResponse, QuoteDetailResponse, PriceCalculationResponse
+from schemas.quote import (
+    QuickQuoteRequest, QuickQuoteResponse, FullQuoteRequest, FullQuoteResponse,
+    PromoteQuoteRequest, QuoteListResponse, QuoteDetailResponse, PriceCalculationResponse,
+)
 from services.pricing import calculate_premium, PRODUCT_SCHEMAS, get_vehicle_category
 from services.finance import calculate_finance
 from auth.dependencies import require_role

@@ -236,7 +236,9 @@ def list_policy_transactions(
         if tx_type == "ISSUE":
             return "Issue"
         if tx_type == "ENDORSEMENT":
-            return f"Endorsement — premium change £{delta:+.2f}" if delta and delta != 0 else "Endorsement — no premium change"
+            if delta and delta != 0:
+                return f"Endorsement — premium change £{delta:+.2f}"
+            return "Endorsement — no premium change"
         if tx_type == "CANCELLATION":
             return f"Cancellation — refund £{abs(delta):.2f}" if delta else "Cancellation"
         if tx_type == "REINSTATEMENT":
@@ -501,13 +503,17 @@ def cancel_policy(
     total_days = (policy.expiry_date - policy.inception_date).days
     days_remaining = (policy.expiry_date - cancellation_date).days
     effective_premium = get_effective_premium(policy, db)
-    refund = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    refund = (
+        effective_premium * Decimal(days_remaining) / Decimal(total_days)
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     # Pro-rata commission clawbacks
     old_commission = calculate_commission(effective_premium, policy.product, policy.dealer, policy.tenant, db)
     clawback_ratio = Decimal(days_remaining) / Decimal(total_days)
     dealer_fee_delta = -(old_commission.dealer_fee * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    broker_commission_delta = -(old_commission.broker_commission * clawback_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = -(
+        old_commission.broker_commission * clawback_ratio
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     policy.status = new_status
     snapshot = {**policy.policy_data, "cancellation_date": str(cancellation_date)}
@@ -581,13 +587,17 @@ def reinstate_policy(
 
     total_days = (policy.expiry_date - policy.inception_date).days
     effective_premium = get_effective_premium(policy, db)
-    reinstatement_premium = (effective_premium * Decimal(days_remaining) / Decimal(total_days)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    reinstatement_premium = (
+        effective_premium * Decimal(days_remaining) / Decimal(total_days)
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     # Pro-rata commission re-charges
     old_commission = calculate_commission(effective_premium, policy.product, policy.dealer, policy.tenant, db)
     recharge_ratio = Decimal(days_remaining) / Decimal(total_days)
     dealer_fee_delta = (old_commission.dealer_fee * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    broker_commission_delta = (old_commission.broker_commission * recharge_ratio).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    broker_commission_delta = (
+        old_commission.broker_commission * recharge_ratio
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     policy.status = new_status
     policy.expiry_date = new_expiry
