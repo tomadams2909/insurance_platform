@@ -142,11 +142,13 @@ def generate_policy_schedule(
 
     if payment_type == "FINANCE" and fb:
         section_heading("Payment Details")
+        deposit = float(data.get('finance_deposit', 0))
+        financed_total = float(fb.get('total_repayable', 0))
         row("Net Premium (Financed Amount):", f"£{fb.get('financed_amount', '-')}")
-        row("Deposit:", f"£{float(data.get('finance_deposit', 0)):.2f}")
+        row("Deposit:", f"£{deposit:.2f}")
         row("Monthly Payment:", f"£{fb.get('monthly_payment', '-')} x {data.get('finance_term_months', '-')} months")
         row("Finance Charge (cost of credit):", f"£{fb.get('finance_charge', '-')}")
-        row("Total Repayable:", f"£{fb.get('total_repayable', '-')}")
+        row("Total Repayable (incl. deposit):", f"£{deposit + financed_total:.2f}")
         row("Representative APR:", f"{fb.get('apr', '-')}%")
     else:
         section_heading("Payment Details")
@@ -341,7 +343,7 @@ def generate_finance_agreement(
     row("Amount of Credit (Financed Amount):", f"£{financed_amount:.2f}")
     row("Deposit Paid:", f"£{deposit:.2f}")
     row("Total Charge for Credit:", f"£{finance_charge:.2f}")
-    row("Total Amount Repayable:", f"£{total_repayable:.2f}")
+    row("Total Amount Repayable (incl. deposit):", f"£{deposit + total_repayable:.2f}")
     row("Representative APR:", f"{apr}%")
     row("Duration:", f"{term_months} months")
     pdf.ln(4)
