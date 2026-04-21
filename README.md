@@ -3,6 +3,9 @@
 [![CI](https://github.com/tomadams2909/insurance_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/tomadams2909/insurance_platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
 **Live demo:** [insuranceplatform-production.up.railway.app](https://insuranceplatform-production.up.railway.app) — log in with `admin@insuranceco.com` / `Demo1234!`
 
