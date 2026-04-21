@@ -1,7 +1,7 @@
 <div align="center">
 
 # Insurance Platform
-### Multi-tenant motor ancillary insurance — quote to policy in minutes
+### Multi-tenant motor ancillary insurance - quote to policy in minutes
 
 **A production-grade SaaS platform handling the full policy lifecycle across isolated broker tenants**
 
@@ -21,7 +21,7 @@
 
 ## What it is
 
-A multi-tenant motor ancillary insurance platform that handles the complete policy lifecycle — from quick quote to document generation — across fully isolated broker tenants. Each tenant gets white-label branding, its own product access controls, and a dedicated dealer commission engine.
+A multi-tenant motor ancillary insurance platform that handles the complete policy lifecycle - from quick quote to document generation - across fully isolated broker tenants. Each tenant gets white-label branding, its own product access controls, and a dedicated dealer commission engine.
 
 ```
 Quick Quote    →  two fields, instant indicative price, promotable to a full quote
@@ -54,13 +54,13 @@ Three independently branded tenants demonstrate the multi-tenant SaaS model. All
 
 ## Screenshots
 
-### Quote flow — full quote form with pricing information
+### Quote flow - full quote form with pricing information
 ![Quick quote form with instant pricing and promote action](docs/screenshots/quote-form.png)
 
-### Policy detail — state transitions and document downloads
+### Policy detail - state transitions and document downloads
 ![Policy detail page showing bind, issue, endorse, cancel and reinstate actions](docs/screenshots/policy-detail.png)
 
-### White-label branding — three tenants, three identities
+### White-label branding - three tenants, three identities
 | Insurance Co. Ltd | Car Cover Ltd | Auto Insurance Ltd |
 |---|---|---|
 | <img src="docs/screenshots/dashboard-insuranceco.png" width="260" alt="Insurance Co. dashboard"> | <img src="docs/screenshots/dashboard-carcover.png" width="260" alt="Car Cover dashboard"> | <img src="docs/screenshots/dashboard-autoinsurance.png" width="260" alt="Auto Insurance dashboard"> |
@@ -98,13 +98,13 @@ Three independently branded tenants demonstrate the multi-tenant SaaS model. All
 ────────────────────────────────────────────────────
 ```
 
-**Tenant isolation** — every ORM query is scoped to `tenant_id` derived from the authenticated user. Cross-tenant data access is structurally impossible at the database layer.
+**Tenant isolation** - every ORM query is scoped to `tenant_id` derived from the authenticated user. Cross-tenant data access is structurally impossible at the database layer.
 
-**Policy state machine** — `ALLOWED_TRANSITIONS` maps `(current_status, action) → new_status`. Invalid transitions are rejected with HTTP 422 before any data is written. Every transition is appended to an immutable audit log with user, timestamp, and financial delta.
+**Policy state machine** - `ALLOWED_TRANSITIONS` maps `(current_status, action) → new_status`. Invalid transitions are rejected with HTTP 422 before any data is written. Every transition is appended to an immutable audit log with user, timestamp, and financial delta.
 
-**Commission resolution** — product-specific rate → dealer default → zero. Rates are locked at bind and never change during the policy term, satisfying FCA disclosure requirements.
+**Commission resolution** - product-specific rate → dealer default → zero. Rates are locked at bind and never change during the policy term, satisfying FCA disclosure requirements.
 
-**Document generation** — fpdf2 generators produce tenant-branded PDFs for every lifecycle event. Tenant primary colour and logo are applied at render time; no static templates are stored per tenant.
+**Document generation** - fpdf2 generators produce tenant-branded PDFs for every lifecycle event. Tenant primary colour and logo are applied at render time; no static templates are stored per tenant.
 
 ---
 
@@ -132,7 +132,7 @@ Three independently branded tenants demonstrate the multi-tenant SaaS model. All
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — recommended, everything else is handled
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) - recommended, everything else is handled
 - Or: Python 3.11+ and Node 20+ for manual setup
 
 ### Docker (recommended)
@@ -143,7 +143,7 @@ cd insurance_platform
 docker compose up --build
 ```
 
-First build takes 3–5 minutes (subsequent starts are fast — layers are cached). Docker automatically:
+First build takes 3–5 minutes (subsequent starts are fast - layers are cached). Docker automatically:
 
 1. Starts PostgreSQL and waits for the health check
 2. Runs all Alembic migrations
@@ -201,7 +201,7 @@ Every policy moves through a strict state machine: **BOUND → ISSUED → ENDORS
 
 ### Multi-tenancy and white-label branding
 
-Each tenant has its own primary colour, logo, and favicon applied on login without a page reload. Product access and broker commission rates are configurable per tenant — a broker can only quote products their tenant has enabled. All data is isolated at the ORM layer.
+Each tenant has its own primary colour, logo, and favicon applied on login without a page reload. Product access and broker commission rates are configurable per tenant - a broker can only quote products their tenant has enabled. All data is isolated at the ORM layer.
 
 ### Pricing engine
 
@@ -220,17 +220,17 @@ Vehicle categories (1–3) are derived from purchase price. All premiums are rou
 
 ### Dealer and commission engine
 
-Dealers are sub-entities of a tenant. Each dealer has configurable commission rates — percentage or flat fee — with per-product overrides. FCA-mandated fee disclosure records dealer fee, broker commission, and net premium on every policy and in every generated document.
+Dealers are sub-entities of a tenant. Each dealer has configurable commission rates - percentage or flat fee - with per-product overrides. FCA-mandated fee disclosure records dealer fee, broker commission, and net premium on every policy and in every generated document.
 
 ### Document generation
 
 fpdf2 generates tenant-branded PDFs for every lifecycle event:
 
-- **Policy Schedule** — cover details, payment breakdown, fee disclosure
-- **Endorsement Certificate** — before/after snapshot of changed fields
-- **Cancellation Notice** — pro-rata refund, finance non-refundability notice
-- **Reinstatement Notice** — new expiry date, reinstatement premium
-- **Finance Agreement** — payment schedule, total cost of credit, 14-day cooling-off notice
+- **Policy Schedule** - cover details, payment breakdown, fee disclosure
+- **Endorsement Certificate** - before/after snapshot of changed fields
+- **Cancellation Notice** - pro-rata refund, finance non-refundability notice
+- **Reinstatement Notice** - new expiry date, reinstatement premium
+- **Finance Agreement** - payment schedule, total cost of credit, 14-day cooling-off notice
 
 ### Finance
 
@@ -304,7 +304,7 @@ insurance_platform/
 │   └── Dockerfile                   # Node 20 builder → nginx alpine
 ├── docs/screenshots/
 ├── docker-compose.yml
-├── .github/workflows/               # CI — lint + tests on every push
+├── .github/workflows/               # CI - lint + tests on every push
 └── .env.example
 ```
 
@@ -312,7 +312,7 @@ insurance_platform/
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)
 
 ---
 
