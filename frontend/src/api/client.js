@@ -13,7 +13,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginEndpoint = error.config?.url?.includes('/auth/login')
+    if (error.response?.status === 401 && !isLoginEndpoint) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('tenantConfig')
