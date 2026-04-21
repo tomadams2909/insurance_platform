@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688)
 
-**Live demo:** [insuranceplatform-production.up.railway.app](https://insuranceplatform-production.up.railway.app) — log in with `broker@insuranceco.com` / `Demo1234!`
+**Live demo:** [insuranceplatform-production.up.railway.app](https://insuranceplatform-production.up.railway.app) — log in with `admin@insuranceco.com` / `Demo1234!`
 
 A multi-tenant motor ancillary insurance platform built to production-grade standards against UK FCA motor ancillary requirements. Covers the full policy lifecycle — quote, bind, issue, endorse, cancel, reinstate — with PDF document generation, a dealer commission engine, financed payment options, and a BDX Excel report. Three independently branded demo tenants showcase the multi-tenancy model end-to-end.
 
@@ -19,15 +19,14 @@ A multi-tenant motor ancillary insurance platform built to production-grade stan
 ```
 ┌─────────────────────┐     HTTP/JSON      ┌──────────────────────┐
 │   React + Vite      │ ◄────────────────► │   FastAPI (Python)   │
-│   frontend          │                    │   backend            │
-│   localhost:5173    │                    │   localhost:8000     │
+│   nginx (Docker)    │                    │   uvicorn (Docker)   │
+│   localhost:3000    │                    │   localhost:8000     │
 └─────────────────────┘                    └──────────┬───────────┘
                                                       │ SQLAlchemy ORM
                                                       ▼
                                            ┌──────────────────────┐
                                            │   PostgreSQL 17      │
                                            │   (Docker)           │
-                                           │   localhost:5434     │
                                            └──────────────────────┘
 ```
 
@@ -60,42 +59,35 @@ A multi-tenant motor ancillary insurance platform built to production-grade stan
 
 ## Prerequisites
 
-- Docker (for PostgreSQL)
-- Python 3.11+
-- Node 18+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+That's it. No Python or Node installation required.
 
 ---
 
 ## Setup
 
 ```bash
-# 1. Clone
 git clone https://github.com/tomadams2909/insurance_platform.git
 cd insurance_platform
-
-# 2. Start PostgreSQL
-docker-compose up -d
-
-# 3. Install backend dependencies
-cd backend
-pip install -e .
-
-# 4. Run migrations
-alembic upgrade head
-
-# 5. Seed demo data (three tenants, dealers, sample policies)
-python seed.py
-
-# 6. Start the backend
-uvicorn main:app --reload
-# API available at http://localhost:8000
-
-# 7. In a second terminal, start the frontend
-cd ../frontend
-npm install
-npm run dev
-# UI available at http://localhost:5173
+docker compose up --build
 ```
+
+The first build takes 3–5 minutes while Docker downloads base images and installs dependencies. Subsequent starts are fast (cached layers).
+
+On startup Docker will automatically:
+1. Start PostgreSQL and wait until it is ready
+2. Run all Alembic migrations
+3. Seed three demo tenants with dealers and sample policies
+4. Start the backend API and frontend
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/docs |
+
+To stop: `Ctrl+C` then `docker compose down`
 
 > API documentation is auto-generated at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc` (ReDoc). All endpoints are fully typed and documented.
 
